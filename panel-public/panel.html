@@ -98,6 +98,8 @@
 
 <div class="logbar">
   <span id="logdurum">hazır</span>
+  <button class="b mini" id="durdurBtn" style="display:none;background:#7a2130;border-color:#a33;color:#fff"
+    onclick="durdur()">■ DURDUR</button>
   <button class="b mini" onclick="document.getElementById('log').innerHTML=''">temizle</button>
 </div>
 <div id="log"></div>
@@ -141,7 +143,8 @@ function cizSol(){
     h+=`<div class="is ${SECILI===i.ad?"on":""}" onclick="sec('${i.ad}')">
       <div class="ad">${esc(i.baslik).slice(0,42)}</div>
       <div class="alt">
-        <span class="rozet ${i.format==="short"?"short":""}">${i.format==="short"?"SHORTS":"UZUN"}</span>
+        <span class="rozet ${i.format==="long"?"":"short"}">${
+          i.format==="reels"?"REELS":i.format==="short"?"SHORTS":"UZUN"}</span>
         <span class="rozet ${i.senaryo?"ok":"yok"}">senaryo</span>
         <span class="rozet ${i.gorsel?"ok":"yok"}">${i.gorsel||0} görsel</span>
         <span class="rozet ${i.sesParca?"ok":"yok"}">ses</span>
@@ -174,8 +177,9 @@ Roma İmparatorluğu neden çöktü"></textarea>
     <div class="grid">
       <div class="alan"><label>Format</label>
         <select id="nFormat">
-          <option value="long">Uzun video — 16:9</option>
-          <option value="short">Shorts — 9:16 (max 45 sn)</option>
+          <option value="long">YouTube uzun video — 16:9, en az 15 dk</option>
+          <option value="short">YouTube Shorts — 9:16, max 45 sn</option>
+          <option value="reels">Instagram Reels — 9:16, max 90 sn</option>
         </select></div>
       <div class="alan"><label>Klasör adı</label>
         <input id="nAd" placeholder="başlıktan otomatik"></div>
@@ -453,9 +457,21 @@ async function calistir(tur,is,ek){
   izle(r.id);
 }
 
+let CALISAN=null;
+
+async function durdur(){
+  if(!CALISAN) return;
+  const b=$("#durdurBtn"); if(b) b.textContent="durduruluyor…";
+  await api("/api/durdur",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({id:CALISAN})});
+  logYaz("■ durdurma isteği gönderildi","err");
+}
+
 function izle(id){
   if(IZLE) clearInterval(IZLE);
   let gorulen=0;
+  CALISAN=id;
+  const db=$("#durdurBtn"); if(db){ db.style.display="inline-block"; db.textContent="■ DURDUR"; }
   $("#logdurum").textContent="çalışıyor…";
   IZLE=setInterval(async()=>{
     const k=await api("/api/log?id="+id);
@@ -465,7 +481,12 @@ function izle(id){
       logYaz(s, s.startsWith("✓")?"ok" : s.startsWith("✗")?"err" : null);
     }
     gorulen=k.satirlar.length;
-    if(k.bitti){ clearInterval(IZLE); IZLE=null; $("#logdurum").textContent="hazır"; yukle(true); }
+    if(k.bitti){
+      clearInterval(IZLE); IZLE=null; CALISAN=null;
+      const b=$("#durdurBtn"); if(b) b.style.display="none";
+      $("#logdurum").textContent=k.iptal?"durduruldu":"hazır";
+      yukle(true);
+    }
   },900);
 }
 
@@ -520,16 +541,29 @@ function kaynakHTML(){
   <div class="kart" style="border-color:var(--vurgu)">
     <h3>🖊️ Senaryo motoru — vidIQ</h3>
     <div class="not" style="margin-top:0;margin-bottom:10px">
-      Bunu girersen panel <b>senaryoyu kendi yazar</b>. Sen sadece konuyu yazarsın.<br>
-      Lifetime Max üyeliğinde zaten var — <b>ek para yok</b>. Senaryo dakikası 1 kredi.
+      Panel senaryoyu bununla yazar. Ayrıca başlığı puanlar, alternatif başlık
+      önerir, anahtar kelime ve etiket çıkarır.<br>
+      <b>Lifetime Max üyeliğinde zaten var — ek para yok.</b>
     </div>
-    <div class="alan"><label>VIDIQ — anahtarı buradan al: app.vidiq.com/account/settings/mcp</label>
+    <div class="alan"><label>VIDIQ — app.vidiq.com/account/settings/mcp</label>
       <input id="VIDIQ_KEY" placeholder="vidIQ MCP anahtarını yapıştır"></div>
     <div class="satir"><button class="b esas" onclick="anahtarKaydet()">Kaydet</button>
       <span class="kucuk" id="anahtarDurum2"></span>
       <span id="vidiqDurum"></span></div>
-    <div class="not">vidIQ sitesinde: Account → Settings → MCP → Generate key. Tek tıkla iptal edilebiliyor.</div>
   </div>
+
+  <details class="kart" style="padding-top:12px">
+    <summary style="cursor:pointer;font-weight:600">Anthropic API — isteğe bağlı, ÜCRETLİ</summary>
+    <div class="not" style="margin-top:10px">
+      Gerekli <b>değil</b>. vidIQ senaryoyu zaten yazıyor ve sana bedava.<br>
+      Bunu sadece daha iyi senaryo kalitesi istersen eklersin — senaryo başına ~10 sent.
+      Girersen panel vidIQ yerine bunu kullanır.
+    </div>
+    <div class="alan"><label>console.anthropic.com/settings/keys</label>
+      <input id="ANTHROPIC_API_KEY" placeholder="boş bırak — gerekmiyor"></div>
+    <div class="satir"><button class="b" onclick="anahtarKaydet()">Kaydet</button>
+      <span id="claudeDurum"></span></div>
+  </details>
 
   <div class="kart">
     <h3>Görsel kaynakları — ücretsiz anahtarla açılanlar</h3>
@@ -556,7 +590,7 @@ function kaynakHTML(){
     </div>
   </div>`;
 }
-const ANAHTARLAR=["VIDIQ_KEY","PEXELS_KEY","PIXABAY_KEY","UNSPLASH_KEY"];
+const ANAHTARLAR=["ANTHROPIC_API_KEY","VIDIQ_KEY","PEXELS_KEY","PIXABAY_KEY","UNSPLASH_KEY"];
 
 async function anahtarTest(){
   const kart=$("#testKart"), kutu=$("#testSonuc");
@@ -585,6 +619,10 @@ async function kaynakYukle(){
   if(v) v.innerHTML = d.VIDIQ_KEY
     ? `<span class="rozet ok">senaryo motoru AÇIK</span>`
     : `<span class="rozet yok">senaryo motoru kapalı — anahtar gerek</span>`;
+  const c=$("#claudeDurum");
+  if(c) c.innerHTML = d.ANTHROPIC_API_KEY
+    ? `<span class="rozet ok">açık — vidIQ yerine bu kullanılıyor</span>`
+    : `<span class="kucuk">girilmedi — gerekmiyor</span>`;
 }
 
 async function anahtarKaydet(){

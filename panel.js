@@ -72,7 +72,8 @@ function isDurumu(ad) {
 
   return {
     ad, baslik: (konu && konu.baslik_en) || ad,
-    format: (konu && konu.aspect) === "9:16" ? "short" : "long",
+    format: (konu && konu.format) === "reels" ? "reels"
+          : (konu && konu.aspect) === "9:16" ? "short" : "long",
     konuVar: !!konu, senaryo, trAlt, kelime,
     dakika: kelime ? Math.round((kelime / 151 + 0.5) * 10) / 10 : 0,
     gorsel, sesParca, video
@@ -85,6 +86,7 @@ function calistir(komut, argv) {
   const kayit = { satirlar: [], bitti: false, kod: null, komut: komut + " " + argv.join(" ") };
   LOGLAR.set(id, kayit);
   const p = spawn(process.execPath, [path.join(KOK, komut), ...argv], { cwd: KOK });
+  kayit.surec = p;
   const ekle = d => {
     const t = d.toString().replace(/\r/g, "\n");
     for (const l of t.split("\n")) if (l.trim()) kayit.satirlar.push(l);
@@ -92,8 +94,26 @@ function calistir(komut, argv) {
   };
   p.stdout.on("data", ekle);
   p.stderr.on("data", ekle);
-  p.on("close", k => { kayit.bitti = true; kayit.kod = k; kayit.satirlar.push(k === 0 ? "✓ BITTI" : "✗ HATA (kod " + k + ")"); });
+  p.on("close", k => {
+    kayit.surec = null; kayit.bitti = true; kayit.kod = k;
+    kayit.satirlar.push(kayit.iptal ? "■ DURDURULDU" : k === 0 ? "✓ BITTI" : "✗ HATA (kod " + k + ")");
+  });
   return id;
+}
+
+// --- calisan islemi (ve alt islemlerini) durdur ---
+// ffmpeg node'un TORUNU oldugu icin sadece node'u oldurmek yetmez:
+// Windows'ta taskkill /T ile tum agac kapatilir.
+function durdur(id) {
+  const kayit = LOGLAR.get(id);
+  if (!kayit || kayit.bitti) return false;
+  kayit.iptal = true;
+  const p = kayit.surec;
+  if (!p || !p.pid) { kayit.bitti = true; kayit.satirlar.push("■ DURDURULDU"); return true; }
+  try {
+    spawn("taskkill", ["/PID", String(p.pid), "/T", "/F"], { windowsHide: true });
+  } catch (e) { try { p.kill(); } catch (e2) {} }
+  return true;
 }
 
 // --- birden fazla scripti sirayla calistir, hepsi tek log'a yazsin ---
@@ -115,15 +135,19 @@ function zincir(adimlar) {
       yaz("✓ ZINCIR TAMAM — video hazir");
       return;
     }
+    if (kayit.iptal) { kayit.surec = null; kayit.bitti = true; yaz("■ DURDURULDU"); return; }
     const a = adimlar[i++];
     if (a.atla && a.atla()) { yaz("— " + a.ad + " atlandi (gerekmiyor)"); return sonraki(); }
 
     yaz("");
     yaz("▶ " + (i) + "/" + adimlar.length + " — " + a.ad);
     const p = spawn(process.execPath, [path.join(KOK, a.komut), ...a.argv], { cwd: KOK });
+    kayit.surec = p;
     p.stdout.on("data", d => yaz(d));
     p.stderr.on("data", d => yaz(d));
     p.on("close", k => {
+      kayit.surec = null;
+      if (kayit.iptal) { kayit.bitti = true; kayit.kod = -1; yaz("■ DURDURULDU — " + a.ad + " yarida kesildi"); return; }
       if (k !== 0) {
         kayit.bitti = true; kayit.kod = k;
         yaz("✗ " + a.ad + " HATA verdi (kod " + k + ") — zincir durdu");
@@ -164,8 +188,15 @@ function zincirAdimlari(is) {
   const varMi = alan => Array.isArray(k[alan]) && k[alan].length > 0;
   const adimlar = [];
 
-  // senaryo yoksa once onu yazdir (vidIQ)
-  if (!senaryoVar(is)) adimlar.push({ ad: "Senaryo yazimi", komut: "senaryo-yaz.js", argv: [is] });
+  // Senaryo motoru: Claude API varsa o (kaliteli), yoksa vidIQ (yedek).
+  if (!senaryoVar(is)) {
+    const claudeVar = !!anahtar("ANTHROPIC_API_KEY");
+    adimlar.push({
+      ad: claudeVar ? "Senaryo yazimi (Claude)" : "Senaryo yazimi (vidIQ)",
+      komut: claudeVar ? "senaryo-claude.js" : "senaryo-yaz.js",
+      argv: [is],
+    });
+  }
 
   // gorseller: konu ne olursa olsun senaryodan cikarilip bulunur
   adimlar.push({ ad: "Gorsel bulma", komut: "gorsel-bul.js", argv: [is] });
@@ -175,6 +206,9 @@ function zincirAdimlari(is) {
   if (varMi("promptlar")) adimlar.push({ ad: "Prompt kartlari", komut: "prompt-kart.js", argv: [is] });
   adimlar.push({ ad: "Seslendirme", komut: "seslendir.js", argv: [is] });
   adimlar.push({ ad: "Video kurulumu", komut: "video-yap.js", argv: [is] });
+  // vidIQ varsa baslik + etiket analizi (istege bagli, hata verse de zinciri durdurmaz)
+  if (anahtar("VIDIQ_KEY"))
+    adimlar.push({ ad: "Baslik & etiket analizi", komut: "baslik-analiz.js", argv: [is] });
   return adimlar;
 }
 
@@ -212,7 +246,12 @@ const server = http.createServer(async (req, res) => {
     const dir = path.join(URETIM, ad);
     if (fs.existsSync(dir)) return json(res, 409, { hata: "bu isim zaten var" });
     fs.mkdirSync(path.join(dir, "Voice"), { recursive: true });
+    // long  = YouTube uzun video, 16:9, en az 15 dk
+    // short = YouTube Shorts,     9:16, en fazla 45 sn
+    // reels = Instagram Reels,    9:16, en fazla 90 sn
+    const reels = b.format === "reels";
     const short = b.format === "short";
+    const dikey = short || reels;
     const ay = ayarOku();
 
     // Sahne / arama kelimesi TANIMLANMAZ — gorsel-bul.js bunlari
@@ -220,11 +259,17 @@ const server = http.createServer(async (req, res) => {
     const konu = {
       baslik_en: b.baslik || ad,
       kanal: b.kanal || ay.kanal || "KANALIM",
-      format: short ? "short" : "long", aspect: short ? "9:16" : "16:9",
-      geriSayim: short ? 0 : (b.geriSayim === false ? 0 : 5),
-      intro: short ? 1.5 : 10, konuKarti: short ? 0 : 3,
-      outro: short ? 3 : 12, muzikSeviyesi: 0.25,
-      hedefDakika: short ? 1 : (b.hedefDakika || 12),
+      format: reels ? "reels" : short ? "short" : "long",
+      aspect: dikey ? "9:16" : "16:9",
+      geriSayim: dikey ? 0 : (b.geriSayim === false ? 0 : 5),
+      intro: dikey ? 1.5 : 10,
+      konuKarti: dikey ? 0 : 3,
+      // Reels'te abone-ol kapanisi yok — Instagram'da anlamsiz
+      outro: reels ? 0 : short ? 3 : 12,
+      muzikSeviyesi: 0.25,
+      // Shorts <=45 sn, Reels <=90 sn, uzun video >=15 dk
+      hedefSaniye: reels ? 80 : short ? 40 : undefined,
+      hedefDakika: dikey ? undefined : Math.max(15, b.hedefDakika || 15),
       _not: String(b.nis || "").trim() || undefined,
     };
 
@@ -252,7 +297,9 @@ const server = http.createServer(async (req, res) => {
   if (yol === "/api/calistir" && req.method === "POST") {
     const b = await govde(req);
     const izin = {
-      senaryo: ["senaryo-yaz.js", [b.is]],
+      senaryo:  [anahtar("ANTHROPIC_API_KEY") ? "senaryo-claude.js" : "senaryo-yaz.js", [b.is]],
+      senaryoV: ["senaryo-yaz.js",   [b.is]],   // vidIQ ile (yedek)
+      baslik:   ["baslik-analiz.js", [b.is]],
       gorsel:  ["gorsel-bul.js",  [b.is]],
       nasa:    ["gorsel-cek.js",  [b.is, String(b.adet || 12)]],
       portre:  ["portre-cek.js",  [b.is]],
@@ -267,11 +314,12 @@ const server = http.createServer(async (req, res) => {
 
     // tek tus: konudan bitmis videoya kadar hepsi (senaryo dahil)
     if (b.tur === "hepsi") {
-      if (!senaryoVar(b.is) && !anahtar("VIDIQ_KEY"))
+      if (!senaryoVar(b.is) && !anahtar("ANTHROPIC_API_KEY") && !anahtar("VIDIQ_KEY"))
         return json(res, 400, {
-          hata: "Senaryo yazmak icin vidIQ anahtari gerekiyor.\n\n" +
-                "Kaynaklar sekmesine git, anahtari yapistir.\n" +
-                "Anahtari buradan al: app.vidiq.com/account/settings/mcp"
+          hata: "Senaryo yazmak icin bir anahtar gerekiyor.\n\n" +
+                "Kaynaklar sekmesine git:\n" +
+                "  • Claude (onerilen, kaliteli) → console.anthropic.com/settings/keys\n" +
+                "  • vidIQ (yedek) → app.vidiq.com/account/settings/mcp"
         });
       return json(res, 200, { id: zincir(zincirAdimlari(b.is)) });
     }
@@ -285,7 +333,13 @@ const server = http.createServer(async (req, res) => {
     const id = u.searchParams.get("id");
     const k = LOGLAR.get(id);
     if (!k) return json(res, 404, { hata: "yok" });
-    return json(res, 200, k);
+    // surec nesnesi JSON'a cevrilemez, disarida birak
+    return json(res, 200, { satirlar: k.satirlar, bitti: k.bitti, kod: k.kod, komut: k.komut, iptal: !!k.iptal });
+  }
+
+  if (yol === "/api/durdur" && req.method === "POST") {
+    const b = await govde(req);
+    return json(res, 200, { ok: durdur(b.id) });
   }
 
   // --- gorunum ayarlari: konu.json'daki belirli anahtarlari gunceller ---

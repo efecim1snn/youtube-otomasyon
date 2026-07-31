@@ -20,7 +20,7 @@ bitmiş MP4 + altyazı
 ## Ne yapabilir
 
 - **Herhangi bir konu.** Spor, reklam, tarih, bilim, tanıtım — fark etmez. Görsel arama kelimelerini senaryodan kendisi çıkarır.
-- **Uzun video (16:9) ve Shorts (9:16).** Shorts otomatik 45 saniyenin altında tutulur.
+- **Üç format:** YouTube uzun video (16:9, en az 15 dk) · YouTube Shorts (9:16, max 45 sn) · **Instagram Reels** (9:16, max 90 sn). Süre sınırları otomatik uygulanır; Reels'te abone-ol kapanışı çıkarılır.
 - **İki dilli altyazı.** İngilizce seslendirme + Türkçe gömülü altyazı.
 - **Prosedürel intro/outro.** Marka animasyonu, sinematik geri sayım, abone ol kapanışı — hepsi ffmpeg ile üretilir, hazır dosya gerekmez.
 - **33 geçiş tipi, 5 hareket efekti, 6 renk tonu.** Panelden seçilir.
@@ -32,7 +32,9 @@ bitmiş MP4 + altyazı
 |---|---|
 | **Node.js** | 18+ ([nodejs.org](https://nodejs.org)) |
 | **ffmpeg** | `winget install Gyan.FFmpeg` |
-| **vidIQ anahtarı** | Senaryo yazımı için — [app.vidiq.com/account/settings/mcp](https://app.vidiq.com/account/settings/mcp) |
+| **vidIQ anahtarı** | Senaryo yazımı + başlık puanlama — [app.vidiq.com/account/settings/mcp](https://app.vidiq.com/account/settings/mcp) |
+
+**Senaryo motoru iki seçenek:** vidIQ (üyeliğin varsa ek ücret yok) veya Anthropic API (senaryo başına ~10 sent, daha iyi kalite). İkisinden biri yeterli — Anthropic anahtarı girilirse panel onu tercih eder.
 
 Görsel kaynakları için anahtar **zorunlu değil** — Wikimedia ve NASA anahtarsız çalışır. Pexels/Pixabay anahtarı eklersen görsel kalitesi belirgin şekilde artar (ikisi de ücretsiz).
 

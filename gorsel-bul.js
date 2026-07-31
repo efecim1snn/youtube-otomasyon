@@ -166,13 +166,18 @@ function genelCapa(senaryo, paragraflar) {
 }
 
 // Bir paragraf icin denenecek arama ifadeleri — en iyiden en genele.
-function ifadeCikar(paragraf, genelSayim, toplamKelime, capa) {
+function ifadeCikar(paragraf, genelSayim, toplamKelime, capa, paragrafta) {
   const k = kelimeler(paragraf);
   const yerel = {};
   for (const w of k) yerel[w] = (yerel[w] || 0) + 1;
   const puan = w => (yerel[w] || 0) * Math.log(toplamKelime / (genelSayim[w] || 1));
 
-  const tekil = [...new Set(k)].sort((a, b) => puan(b) - puan(a));
+  // Metinde SADECE BIR KEZ gecen kelime konuyu temsil etmez — "fiction",
+  // "obvious", "yes", "bend" gibi cop aramalar bu yuzden cikiyordu.
+  // Konu kelimeleri tekrar eder; gecici kelimeler etmez.
+  const tumTekil = [...new Set(k)].sort((a, b) => puan(b) - puan(a));
+  const tekrarEden = tumTekil.filter(w => (paragrafta[w] || 0) >= 2 || (genelSayim[w] || 0) >= 3);
+  const tekil = tekrarEden.length ? tekrarEden : tumTekil;
   const ozel = ozelIsimler(paragraf);
   const capaMetin = capa.slice(0, 2).join(" ");
 
@@ -361,19 +366,25 @@ async function nasa(q) {
   const kisa = konu.aspect === "9:16" || konu.format === "short";
 
   const paragraflar = senaryo.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 25);
-  const toplamKelime = kelimeler(senaryo).length;
+  const toplamKelime = kelimeler(senaryo).length;        // SUZULMUS (tf-idf icin)
+  const hamKelime = senaryo.split(/\s+/).filter(Boolean).length;   // HAM (sure icin)
   const genelSayim = {};
   for (const w of kelimeler(senaryo)) genelSayim[w] = (genelSayim[w] || 0) + 1;
 
-  // kac gorsel gerekiyor: konusma suresi / gorsel basina ~8 sn
-  const sure = toplamKelime / 151 * 60;
+  // Sure HAM kelime sayisindan hesaplanmali. Suzulmus sayiyi kullanmak
+  // sureyi ~2.5 kat eksik gosteriyordu -> cok az gorsel iniyordu.
+  const sure = hamKelime / 151 * 60;
   const toplamGorsel = Math.max(6, Math.min(160, Math.round(sure / 8)));
   const sahneBasina = Math.max(3, Math.min(14, Math.ceil(toplamGorsel / paragraflar.length)));
 
   const kozmik = kozmikMi(senaryo);
   const capa = genelCapa(senaryo, paragraflar);
+  const paragrafta = {};
+  for (const p of paragraflar)
+    for (const w of new Set(kelimeler(p))) paragrafta[w] = (paragrafta[w] || 0) + 1;
 
-  console.log("senaryo   : " + paragraflar.length + " paragraf · " + toplamKelime + " kelime · ~" + Math.round(sure) + " sn");
+  console.log("senaryo   : " + paragraflar.length + " paragraf · " + hamKelime + " kelime · ~" +
+              Math.floor(sure / 60) + " dk " + Math.round(sure % 60) + " sn");
   console.log("hedef     : ~" + toplamGorsel + " gorsel (sahne basina " + sahneBasina + ")");
   console.log("konu capa : " + capa.join(" · "));
   console.log("kaynaklar : " + [PEXELS && "Pexels", PIXABAY && "Pixabay", "Wikimedia", "Openverse",
@@ -388,7 +399,7 @@ async function nasa(q) {
 
   for (let i = 0; i < paragraflar.length; i++) {
     const no = String(i + 1).padStart(2, "0");
-    const adaylar = ifadeCikar(paragraflar[i], genelSayim, toplamKelime, capa);
+    const adaylar = ifadeCikar(paragraflar[i], genelSayim, toplamKelime, capa, paragrafta);
     if (!adaylar.length) adaylar.push(capa[0] || "abstract");
     const sahneAd = no + "-" + adaylar[0].toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 24);
     const klasor = path.join(VIS, sahneAd);

@@ -85,12 +85,16 @@ function istek(govde, bildirim) {
 const cagir = (ad, arg) =>
   istek({ jsonrpc: "2.0", id: ++sayac, method: "tools/call", params: { name: ad, arguments: arg } });
 
-// vidIQ araclari sonucu metin icerigi olarak dondurur; JSON'u cikar
+// vidIQ araclari sonucu metin icerigi olarak dondurur; JSON'u cikar.
+// KRITIK: isError'u kontrol et — yoksa hata mesaji senaryo sanilip dosyaya yaziliyor.
 function icerik(sonuc) {
   if (!sonuc) return null;
   const t = sonuc.content && sonuc.content.find(x => x.type === "text");
+  const metin = t ? t.text : "";
+  if (sonuc.isError || /^MCP error|Input validation error/i.test(metin))
+    throw new Error("vidIQ isteği reddetti: " + metin.replace(/\s+/g, " ").slice(0, 300));
   if (!t) return null;
-  try { return JSON.parse(t.text); } catch (e) { return t.text; }
+  try { return JSON.parse(metin); } catch (e) { return metin; }
 }
 
 const bekle = ms => new Promise(r => setTimeout(r, ms));
@@ -157,8 +161,11 @@ function shortsKirp(metin, hedef) {
 
   const baslik = konu.baslik_en || is;
   const notKonu = (konu._not || "").replace(/^Konu:\s*/i, "").replace(/^Nis:\s*/i, "").trim();
-  const kisa = konu.aspect === "9:16" || konu.format === "short";
-  const hedefDk = Math.max(1, konu.hedefDakika || 12);
+  // kisa = dikey format (YouTube Shorts veya Instagram Reels)
+  const kisa = konu.aspect === "9:16" || konu.format === "short" || konu.format === "reels";
+  const kisaSn = konu.hedefSaniye || (konu.format === "reels" ? 80 : 40);
+  // UZUN VIDEO ALT SINIRI 15 DK (Osman'in standardi). Dikey formatlar haric.
+  const hedefDk = kisa ? 1 : Math.max(15, konu.hedefDakika || 15);
   // OLCULEN: vidIQ istenen dakikanin ~1.55 kati metin yaziyor
   // (3 dk istendi -> 716 kelime = 4.7 dk @151 kel/dk). O yuzden bolerek istiyoruz.
   const dakika = kisa ? 1 : Math.min(60, Math.max(1, Math.round(hedefDk / 1.55)));
@@ -171,7 +178,9 @@ function shortsKirp(metin, hedef) {
 
   console.log("konu    : " + notKonu.slice(0, 90));
   console.log("baslik  : " + baslik);
-  console.log("format  : " + (kisa ? "Shorts (<=45 sn)" : "hedef ~" + hedefDk + " dk (vidIQ'dan " + dakika + " isteniyor)"));
+  console.log("format  : " + (kisa
+    ? (konu.format === "reels" ? "Instagram Reels" : "YouTube Shorts") + " (<=" + kisaSn + " sn, ~" + hedefKelime + " kelime)"
+    : "hedef ~" + hedefDk + " dk (vidIQ'dan " + dakika + " isteniyor)"));
   console.log("vidIQ'ya gonderiliyor…");
 
   await istek({
@@ -183,47 +192,85 @@ function shortsKirp(metin, hedef) {
   });
   await istek({ jsonrpc: "2.0", method: "notifications/initialized" }, true);
 
-  const gonder = await cagir("vidiq_generate_script", {
-    topic: notKonu,
-    title: baslik,
-    concept: (konu.aciklamaBrief ||
-      "Faceless, narration-only video. No presenter, no talking head, no camera directions. " +
-      "Spoken narration ONLY — it will be read aloud by a text-to-speech voice over still images. " +
-      "Do not write scene headings, b-roll notes, timestamps or speaker labels. " +
-      "Plain paragraphs of spoken English, separated by blank lines.") +
-      (kisa ? " Very short: under 40 seconds of speech, roughly 90 words total." : ""),
-    research: konu.arastirma || notKonu,
-    lengthMinutes: dakika,
-    tone: konu.ton || "cinematic documentary, measured, no hype",
-  });
+  // vidIQ alan sinirlari: topic 500, title 300. Asarsa TUM istegi reddediyor.
+  const kirp = (s, n) => { s = String(s || "").trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…"; };
+  if (notKonu.length > 500) console.log("not     : konu 500 karaktere kirpildi (vidIQ siniri)");
 
-  const g = icerik(gonder);
-  const isId = g && (g.mcpJobId || g.jobId);
-  let ham = null;
+  const TEMEL_BRIEF =
+    "Faceless, narration-only video. No presenter, no talking head, no camera directions. " +
+    "Spoken narration ONLY — it will be read aloud by a text-to-speech voice over still images. " +
+    "Do not write scene headings, b-roll notes, timestamps or speaker labels. " +
+    "WRITE ENTIRELY IN ENGLISH — every word is spoken aloud in English. " +
+    "Plain paragraphs of spoken English, separated by blank lines.";
 
-  if (isId) {
-    console.log("is kuyrukta: " + isId);
+  // Tek bir vidIQ cagrisi calistirir, temizlenmis metni dondurur
+  async function birCagri(dk, ekBrief, oncekiMetin) {
+    const gonder = await cagir("vidiq_generate_script", {
+      topic: kirp(notKonu, 500),
+      title: kirp(baslik, 300),
+      concept: kirp((konu.aciklamaBrief || TEMEL_BRIEF) + " " + (ekBrief || ""), 1500),
+      research: kirp(oncekiMetin
+        ? "Already covered, DO NOT REPEAT any of this: " + oncekiMetin.slice(-1200)
+        : (konu.arastirma || notKonu), 1500),
+      lengthMinutes: Math.min(60, Math.max(1, dk)),
+      tone: konu.ton || "cinematic documentary, measured, no hype",
+    });
+
+    const g = icerik(gonder);
+    const isId = g && (g.mcpJobId || g.jobId);
+    if (!isId) return temizle(g);
+
     for (let i = 0; i < 90; i++) {
       await bekle(4000);
       const d = icerik(await cagir("vidiq_job_poll", { mcpJobId: isId }));
       if (!d) continue;
-      if (d.status === "completed") { ham = d.result; break; }
+      if (d.status === "completed") return temizle(d.result);
       if (d.status === "failed" || d.status === "expired")
         throw new Error("vidIQ uretimi basarisiz (" + (d.errorCode || d.status) + "). Krediler iade edildi.");
-      if (i % 5 === 0) console.log("  … uretiliyor (" + ((i + 1) * 4) + " sn)");
+      if (i % 5 === 0) process.stdout.write("  … uretiliyor (" + ((i + 1) * 4) + " sn)\n");
     }
-    if (!ham) throw new Error("vidIQ 6 dakikada bitmedi — tekrar dene.");
-  } else {
-    ham = g;
+    throw new Error("vidIQ 6 dakikada bitmedi — tekrar dene.");
   }
 
-  let metin = temizle(ham);
+  // OLCULEN: vidIQ tek cagride ~1400 kelimede tikaniyor; 15 dk (2265 kelime)
+  // tek istekle GELMIYOR. Hedefe ulasana kadar yeni bolumler yazdirip ekliyoruz.
+  const hedefKelime = kisa ? Math.round(kisaSn / 60 * 137) : Math.round(hedefDk * 151);
+  const ACILAR = [
+    "Cover the origins and the background the audience needs first.",
+    "Now go deeper: the mechanisms, the specifics, the concrete examples and numbers.",
+    "Now the consequences, the objections, the counter-arguments and what is still unresolved.",
+    "Now the wider implications and where this is heading next.",
+  ];
+
+  let metin = "";
+  for (let tur = 0; tur < (kisa ? 1 : 4); tur++) {
+    const kalanKelime = hedefKelime - kelimeSay(metin);
+    if (kalanKelime <= hedefKelime * 0.06) break;               // %94'e ulastik, yeter
+    const kalanDk = Math.max(1, Math.round(kalanKelime / 151));
+
+    const parca = await birCagri(kalanDk, ACILAR[tur], metin || null);
+    if (!parca || kelimeSay(parca) < 20) break;
+
+    metin = metin ? metin + "\n\n" + parca : parca;
+    console.log("  bolum " + (tur + 1) + ": +" + kelimeSay(parca) + " kelime → toplam " +
+                kelimeSay(metin) + "/" + hedefKelime);
+    if (kisa) break;
+  }
+
   if (!metin || kelimeSay(metin) < 20) throw new Error("vidIQ bos senaryo dondurdu.");
 
-  if (kisa) metin = shortsKirp(metin, 95);
+  if (kisa) metin = shortsKirp(metin, hedefKelime);
 
   const k = kelimeSay(metin);
   const sn = Math.round((k / 151) * 60);
+
+  // UZUN VIDEO ALT SINIRI: hedefin %80'ine ulasamadiysak dosyaya YAZMA —
+  // yoksa 48 saniyelik video cikip sebebi anlasilmiyor.
+  if (!kisa && k < hedefKelime * 0.8) {
+    throw new Error("Senaryo " + k + " kelimede kaldi (~" + (sn / 60).toFixed(1) + " dk), hedef " +
+      hedefDk + " dk (" + hedefKelime + " kelime). Konuyu birkac cumleyle daha ayrintili yaz " +
+      "(hangi alt basliklar islensin) ve tekrar dene.");
+  }
 
   const sesDizin = path.join(KLASOR, "Voice");
   fs.mkdirSync(sesDizin, { recursive: true });
@@ -234,12 +281,10 @@ function shortsKirp(metin, hedef) {
     fs.copyFileSync(hedef, hedef.replace(/\.txt$/, "-onceki.txt"));
 
   fs.writeFileSync(hedef, metin + "\n", "utf8");
-  fs.writeFileSync(path.join(sesDizin, "SENARYO-HAM-VIDIQ.txt"),
-    typeof ham === "string" ? ham : JSON.stringify(ham, null, 2), "utf8");
 
   console.log("");
   console.log("✓ senaryo yazildi: Voice/SESLENDIRME-TAM-METIN.txt");
   console.log("  " + k + " kelime · ~" + Math.floor(sn / 60) + " dk " + (sn % 60) + " sn");
   console.log("  " + metin.split(/\n\s*\n/).length + " paragraf");
-  if (kisa && sn > 45) console.log("  ⚠ 45 saniyeyi asiyor — kisalt");
+  if (kisa && sn > kisaSn) console.log("  ⚠ " + kisaSn + " saniyeyi asiyor — kisalt");
 })().catch(e => { console.error("✗ " + e.message); process.exit(1); });
