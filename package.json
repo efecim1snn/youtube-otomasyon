@@ -1,0 +1,12 @@
+{
+  "name": "youtube-otomasyon",
+  "version": "1.0.0",
+  "description": "Faceless AI YouTube icerik otomasyon paneli (localhost)",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "msedge-tts": "^2.0.7"
+  }
+}

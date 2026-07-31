@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🌌 İçerik Otomasyon Paneli</title>
+<style>
+  :root{
+    --bg:#0a0a16; --bg2:#12122a; --panel:#161633; --panel2:#1d1d40;
+    --line:#2a2a52; --txt:#e8e8f5; --dim:#9a9ac0; --acc:#7c6cff; --acc2:#00d4ff;
+    --gold:#ffcf5c; --green:#37d67a; --shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--txt); background:radial-gradient(1200px 700px at 70% -10%,#241d55 0%,transparent 55%),
+    radial-gradient(900px 600px at 10% 10%,#12324a 0%,transparent 50%),var(--bg);
+    min-height:100vh;
+  }
+  .stars{position:fixed;inset:0;pointer-events:none;opacity:.5;
+    background-image:radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 60% 70%,#fff,transparent),
+    radial-gradient(1px 1px at 80% 20%,#fff,transparent),radial-gradient(1px 1px at 40% 80%,#cfe,transparent),
+    radial-gradient(1px 1px at 90% 60%,#fff,transparent),radial-gradient(1px 1px at 33% 50%,#fff,transparent);
+    background-size:cover;}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px;position:relative;z-index:1}
+  header h1{margin:0;font-size:24px;letter-spacing:.3px}
+  header p{margin:6px 0 0;color:var(--dim);font-size:14px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}
+  .stat{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+  .stat .n{font-size:26px;font-weight:700}
+  .stat .l{font-size:12px;color:var(--dim);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 18px}
+  .btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:10px;
+    padding:8px 14px;font-size:13px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--acc);background:var(--panel)}
+  .btn.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .btn.primary{background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;color:#fff;font-weight:600}
+  .spacer{flex:1}
+  .card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .card h3{margin:0;font-size:17px;line-height:1.3}
+  .card .en{color:var(--dim);font-size:13px;margin-top:3px}
+  .badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .badge.long{background:rgba(124,108,255,.2);color:#b7adff;border:1px solid #4a3fb0}
+  .badge.short{background:rgba(0,212,255,.15);color:#8fe9ff;border:1px solid #1c6f8a}
+  .stepper{display:flex;gap:4px;margin:16px 0 6px;flex-wrap:wrap}
+  .step{flex:1;min-width:56px;text-align:center;cursor:pointer;opacity:.45;transition:.15s}
+  .step .dot{height:6px;border-radius:4px;background:#3a3a66;margin-bottom:6px}
+  .step .lbl{font-size:10.5px;color:var(--dim);white-space:nowrap}
+  .step.done{opacity:1}
+  .step.done .dot{background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  .step.cur{opacity:1}
+  .step.cur .dot{background:var(--gold);box-shadow:0 0 10px var(--gold)}
+  .step.cur .lbl{color:var(--gold);font-weight:700}
+  .step:hover{opacity:1}
+  .card .actions{display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap}
+  .meta-line{font-size:12px;color:var(--dim)}
+  /* drawer */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:.2s;z-index:5}
+  .overlay.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(760px,94vw);background:var(--bg2);
+    border-left:1px solid var(--line);transform:translateX(100%);transition:.25s;z-index:6;overflow:auto;box-shadow:-20px 0 60px rgba(0,0,0,.6)}
+  .drawer.show{transform:translateX(0)}
+  .drawer .dhead{position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--line);
+    padding:16px 22px;display:flex;justify-content:space-between;align-items:center;z-index:2}
+  .doc{padding:10px 26px 60px;line-height:1.65}
+  .doc h1{font-size:22px;margin:22px 0 10px} .doc h2{font-size:19px;margin:26px 0 8px;color:#c7bfff}
+  .doc h3{font-size:16px;margin:18px 0 6px;color:var(--acc2)} .doc h4{font-size:14px;margin:14px 0 4px;color:var(--gold)}
+  .doc p{margin:8px 0;color:#dcdcf0} .doc ul,.doc ol{margin:8px 0;padding-left:22px}
+  .doc li{margin:3px 0} .doc code{background:#0d0d22;padding:2px 6px;border-radius:5px;font-size:13px;color:#9fe}
+  .doc pre{background:#0d0d22;padding:12px 14px;border-radius:10px;overflow:auto;border:1px solid var(--line)}
+  .doc pre code{background:none;padding:0}
+  .doc hr{border:none;border-top:1px solid var(--line);margin:18px 0}
+  .doc blockquote{border-left:3px solid var(--acc);margin:10px 0;padding:6px 14px;background:rgba(124,108,255,.08);color:var(--dim);border-radius:0 8px 8px 0}
+  .doc table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px;display:block;overflow-x:auto}
+  .doc th,.doc td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+  .doc th{background:var(--panel2)}
+  .close{background:none;border:none;color:var(--dim);font-size:26px;cursor:pointer;line-height:1}
+  .empty{text-align:center;color:var(--dim);padding:60px 20px}
+  @media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="stars"></div>
+<div class="wrap">
+  <header>
+    <h1>🌌 İçerik Otomasyon Paneli</h1>
+    <p>Faceless AI · Zaman & Uzay & Yapay Zeka · TR + EN — tüm videoların tek ekranda</p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <button class="btn on" data-f="all">Tümü</button>
+    <button class="btn" data-f="long">🎬 Uzun</button>
+    <button class="btn" data-f="short">⚡ Shorts</button>
+    <span class="spacer"></span>
+    <button class="btn primary" id="newBtn">+ Yeni video</button>
+    <button class="btn" id="refresh">↻ Yenile</button>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer">
+  <div class="dhead"><strong id="drawerTitle">Paket</strong><button class="close" id="closeDrawer">×</button></div>
+  <div class="doc" id="drawerBody"></div>
+</div>
+
+<script>
+const STAGE_LABELS={fikir:"💡 Fikir",senaryo:"📝 Senaryo",gorsel:"🎨 Görsel",ses:"🎙️ Ses",kurgu:"✂️ Kurgu",thumbnail:"🖼️ Kapak",seo:"🔍 SEO",hazir:"✅ Hazır",yuklendi:"🚀 Yüklendi"};
+let STAGES=[], VIDEOS=[], filter="all";
+
+async function load(){
+  const r=await fetch("/api/videos"); const d=await r.json();
+  STAGES=d.stages; VIDEOS=d.videos; render();
+}
+function render(){
+  // stats
+  const total=VIDEOS.length, long=VIDEOS.filter(v=>v.format==="long").length,
+    short=VIDEOS.filter(v=>v.format==="short").length,
+    live=VIDEOS.filter(v=>v.status==="yuklendi").length;
+  document.getElementById("stats").innerHTML=[
+    ["Toplam",total],["🎬 Uzun",long],["⚡ Shorts",short],["🚀 Yayında",live]
+  ].map(s=>`<div class="stat"><div class="n">${s[1]}</div><div class="l">${s[0]}</div></div>`).join("");
+  // list
+  const items=VIDEOS.filter(v=>filter==="all"||v.format===filter);
+  const list=document.getElementById("list");
+  if(!items.length){list.innerHTML='<div class="empty">Henüz video yok. Claude\'a "yeni video üret" de ya da + Yeni video ile ekle.</div>';return;}
+  list.innerHTML=items.map(v=>{
+    const ci=STAGES.indexOf(v.status);
+    const steps=STAGES.map((s,i)=>{
+      const cls=i<ci?"done":(i===ci?"done cur":"");
+      return `<div class="step ${cls}" title="Bu aşamaya al" onclick="setStatus('${v._dir}','${s}')">
+        <div class="dot"></div><div class="lbl">${STAGE_LABELS[s].split(" ")[1]||s}</div></div>`;
+    }).join("");
+    const sched=v.scheduled?`📅 ${v.scheduled}`:"planlanmadı";
+    return `<div class="card">
+      <div class="top">
+        <div><h3>${esc(v.title_tr||v._dir)}</h3><div class="en">${esc(v.title_en||"")}</div></div>
+        <span class="badge ${v.format}">${v.format==="long"?"🎬 UZUN":"⚡ SHORTS"}</span>
+      </div>
+      <div class="stepper">${steps}</div>
+      <div class="actions">
+        <button class="btn" onclick="openPaket('${v._dir}','${esc(v.title_tr||v._dir)}')">📄 Paketi Aç</button>
+        <span class="meta-line">Durum: <b style="color:var(--gold)">${STAGE_LABELS[v.status]||v.status}</b> · ${sched}</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+async function setStatus(dir,status){
+  await fetch("/api/status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir,status})});
+  const v=VIDEOS.find(x=>x._dir===dir); if(v)v.status=status; render();
+}
+async function openPaket(dir,title){
+  document.getElementById("drawerTitle").textContent=title;
+  document.getElementById("drawerBody").innerHTML="<p>Yükleniyor…</p>";
+  showDrawer(true);
+  const r=await fetch("/api/paket?dir="+encodeURIComponent(dir)); const d=await r.json();
+  document.getElementById("drawerBody").innerHTML=d.markdown?mdToHtml(d.markdown):"<p>Paket bulunamadı.</p>";
+}
+function showDrawer(on){document.getElementById("drawer").classList.toggle("show",on);document.getElementById("overlay").classList.toggle("show",on);}
+document.getElementById("closeDrawer").onclick=()=>showDrawer(false);
+document.getElementById("overlay").onclick=()=>showDrawer(false);
+document.getElementById("refresh").onclick=load;
+document.querySelectorAll(".toolbar .btn[data-f]").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".toolbar .btn[data-f]").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); filter=b.dataset.f; render();
+});
+document.getElementById("newBtn").onclick=async()=>{
+  const title_tr=prompt("Video başlığı (TR):"); if(!title_tr)return;
+  const format=confirm("Uzun video mu? (İptal = Shorts)")?"long":"short";
+  const slug=title_tr.toLowerCase().replace(/[^a-z0-9ğüşiöç ]/g,"").replace(/\s+/g,"-").slice(0,40);
+  const today=new Date().toISOString().slice(0,10);
+  const r=await fetch("/api/new",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug,title_tr,format,today})});
+  const d=await r.json(); if(d.ok)load(); else alert(d.error||"hata");
+};
+
+// --- minik markdown -> html ---
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function inline(s){s=esc(s);
+  s=s.replace(/`([^`]+)`/g,"<code>$1</code>");
+  s=s.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+  s=s.replace(/\*([^*]+)\*/g,"<em>$1</em>");
+  s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  return s;}
+function mdToHtml(md){
+  const L=md.replace(/\r\n/g,"\n").split("\n");let h="",i=0;
+  const isBlock=x=>/^(#{1,6}\s|>|\||```|---+\s*$|\s*[-*]\s|\s*\d+\.\s)/.test(x);
+  while(i<L.length){let line=L[i];
+    if(/^```/.test(line)){let c="";i++;while(i<L.length&&!/^```/.test(L[i])){c+=L[i]+"\n";i++;}i++;h+="<pre><code>"+esc(c)+"</code></pre>";continue;}
+    if(/^---+\s*$/.test(line)){h+="<hr>";i++;continue;}
+    const hd=line.match(/^(#{1,6})\s+(.*)$/);if(hd){const l=hd[1].length;h+="<h"+l+">"+inline(hd[2])+"</h"+l+">";i++;continue;}
+    if(/^>\s?/.test(line)){let q="";while(i<L.length&&/^>\s?/.test(L[i])){q+=L[i].replace(/^>\s?/,"")+" ";i++;}h+="<blockquote>"+inline(q.trim())+"</blockquote>";continue;}
+    if(/^\|/.test(line)&&i+1<L.length&&/^\|?\s*:?-+/.test(L[i+1])){
+      const hdr=line.split("|").slice(1,-1).map(c=>c.trim());i+=2;let rows=[];
+      while(i<L.length&&/^\|/.test(L[i])){rows.push(L[i].split("|").slice(1,-1).map(c=>c.trim()));i++;}
+      h+="<table><thead><tr>"+hdr.map(c=>"<th>"+inline(c)+"</th>").join("")+"</tr></thead><tbody>"+
+        rows.map(r=>"<tr>"+r.map(c=>"<td>"+inline(c)+"</td>").join("")+"</tr>").join("")+"</tbody></table>";continue;}
+    if(/^\s*[-*]\s+/.test(line)){let it="";while(i<L.length&&/^\s*[-*]\s+/.test(L[i])){it+="<li>"+inline(L[i].replace(/^\s*[-*]\s+/,""))+"</li>";i++;}h+="<ul>"+it+"</ul>";continue;}
+    if(/^\s*\d+\.\s+/.test(line)){let it="";while(i<L.length&&/^\s*\d+\.\s+/.test(L[i])){it+="<li>"+inline(L[i].replace(/^\s*\d+\.\s+/,""))+"</li>";i++;}h+="<ol>"+it+"</ol>";continue;}
+    if(/^\s*$/.test(line)){i++;continue;}
+    let p=line;i++;while(i<L.length&&!/^\s*$/.test(L[i])&&!isBlock(L[i])){p+=" "+L[i];i++;}h+="<p>"+inline(p)+"</p>";
+  }
+  return h;
+}
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+# API anahtarlari — ASLA yuklenmez
+.env
+.env.*
+!.env.ornek
+
+# uretim ciktilari (gorseller, sesler, videolar — cok buyuk)
+uretim/
+onizleme/
+*.mp4
+*.mp3
+*.srt
+*.jpg
+*.jpeg
+*.png
+
+# node
+node_modules/
+package-lock.json
+
+# panel yerel ayarlari
+panel-ayar.json
+
+# windows
+Thumbs.db
+desktop.ini
+tmp-test/
+*.wav
+
+# --- KISISEL IS BELGELERI: public depoya girmez ---
+# Kanal stratejisi, icerik fikirleri, yukleme metinleri, X thread'leri.
+# Bunlar Osman'in is materyali; arac degil.
+KANAL-ACILIS-KITI.md
+STRATEJI.md
+MIMARI-VE-KURULUM-PLANI.md
+X-THREAD-*.md
+YUKLEME-PAKETI*.md
+fikir-havuzu.md
+muzik/
+videolar/
+# tek seferlik render scriptleri (belirli islere ozel)
+gece-render.sh
+ikinci-gecis.sh
+logo-uret.sh
+muzik-duzelt.sh
+yeni-render.sh

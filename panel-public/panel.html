@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Otomasyon Paneli</title>
+<style>
+  :root{
+    --bg:#04060B; --panel:#0B1017; --panel2:#131A24; --line:#1E2836;
+    --txt:#E6EDF3; --dim:#8A97A6; --acc:#6FD8FF; --acc2:#FFB37A;
+    --ok:#7CE38B; --err:#FF7B72; --warn:#FFD479;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);
+       display:flex;flex-direction:column;overflow:hidden}
+
+  header{display:flex;align-items:center;gap:20px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{margin:0;font-size:16px;letter-spacing:.5px}
+  header h1 span{color:var(--acc)}
+  nav{display:flex;gap:6px;margin-left:12px}
+  nav button{background:none;border:1px solid transparent;color:var(--dim);padding:7px 15px;
+             border-radius:8px;cursor:pointer;font-size:13.5px}
+  nav button:hover{color:var(--txt)}
+  nav button.on{background:var(--panel2);border-color:var(--line);color:var(--acc)}
+
+  main{flex:1;display:flex;min-height:0}
+  .sol{width:290px;border-right:1px solid var(--line);overflow:auto;background:var(--panel);flex-shrink:0}
+  .sag{flex:1;overflow:auto;padding:24px 28px}
+
+  .is{padding:13px 18px;border-bottom:1px solid var(--line);cursor:pointer}
+  .is:hover{background:var(--panel2)}
+  .is.on{background:var(--panel2);border-left:3px solid var(--acc);padding-left:15px}
+  .is .ad{font-weight:600;font-size:13.5px;margin-bottom:5px}
+  .is .alt{font-size:11.5px;color:var(--dim);display:flex;gap:9px;flex-wrap:wrap}
+  .rozet{font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid var(--line)}
+  .rozet.ok{color:var(--ok);border-color:#2A5D38} .rozet.yok{color:var(--dim)}
+  .rozet.short{color:var(--acc2);border-color:#6B4A2E}
+
+  h2{font-size:19px;margin:0 0 4px}
+  .ust{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+  .kucuk{font-size:12.5px;color:var(--dim)}
+
+  .kart{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .kart h3{margin:0 0 14px;font-size:13px;color:var(--acc);letter-spacing:.8px;text-transform:uppercase}
+
+  .satir{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button.b{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+           border-radius:9px;padding:9px 16px;font-size:13px;cursor:pointer;transition:.12s}
+  button.b:hover{border-color:var(--acc);color:var(--acc)}
+  button.b.esas{background:linear-gradient(135deg,#1E6E8C,#2F97BE);border:none;color:#fff;font-weight:600}
+  button.b.esas:hover{filter:brightness(1.15);color:#fff}
+  button.b:disabled{opacity:.4;cursor:not-allowed}
+  button.b.mini{padding:5px 10px;font-size:11.5px}
+
+  input,select,textarea{background:#070B11;border:1px solid var(--line);color:var(--txt);
+        border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;width:100%}
+  textarea{min-height:340px;font:12.5px/1.65 Consolas,monospace;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--acc)}
+  label{display:block;font-size:11.5px;color:var(--dim);margin:0 0 5px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .alan{margin-bottom:13px}
+
+  .gorseller{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:9px;max-height:440px;overflow:auto}
+  .gz{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9}
+  .gz img{width:100%;height:100%;object-fit:cover;display:block}
+  .gz .sil{position:absolute;top:4px;right:4px;background:#000A;border:none;color:#fff;
+           border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1}
+  .gz .sil:hover{background:var(--err)}
+  .gz .et{position:absolute;bottom:0;left:0;right:0;background:#000C;font-size:9.5px;padding:3px 5px;color:var(--dim)}
+
+  #log{height:210px;border-top:1px solid var(--line);background:#070B11;overflow:auto;
+       padding:12px 20px;font:12px/1.6 Consolas,monospace;color:#B9C6D3;flex-shrink:0}
+  #log .ok{color:var(--ok)} #log .err{color:var(--err)} #log .cmd{color:var(--acc)}
+  .logbar{display:flex;justify-content:space-between;align-items:center;padding:7px 20px;
+          background:var(--panel);border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
+
+  .bos{text-align:center;color:var(--dim);padding:70px 20px}
+  .not{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.6}
+  .yakinda{opacity:.45}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ OTOMASYON <span>PANELİ</span></h1>
+  <nav>
+    <button data-t="videolar" class="on">Videolar</button>
+    <button data-t="muzik">Müzik</button>
+    <button data-t="kaynaklar">Kaynaklar</button>
+  </nav>
+</header>
+
+<main>
+  <div class="sol" id="sol"></div>
+  <div class="sag" id="sag"></div>
+</main>
+
+<div class="logbar">
+  <span id="logdurum">hazır</span>
+  <button class="b mini" onclick="document.getElementById('log').innerHTML=''">temizle</button>
+</div>
+<div id="log"></div>
+
+<script>
+let SEKME="videolar", ISLER=[], SECILI=null, IZLE=null, EKRAN="is";
+
+const $=(s)=>document.querySelector(s);
+
+// Turkce karakterleri once ASCII'ye cevir — yoksa "İçerik" -> "i-erik" oluyor
+const TR={"ı":"i","İ":"i","ş":"s","Ş":"s","ğ":"g","Ğ":"g","ü":"u","Ü":"u",
+          "ö":"o","Ö":"o","ç":"c","Ç":"c","â":"a","Â":"a","î":"i","û":"u"};
+const slug=s=>String(s).replace(/[ıİşŞğĞüÜöÖçÇâÂîû]/g,c=>TR[c])
+  .toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,32)
+  .replace(/-+$/,"");
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const api=(u,o)=>fetch(u,o).then(r=>r.json());
+
+function logYaz(t,tip){
+  const d=document.createElement("div");
+  if(tip) d.className=tip;
+  d.textContent=t;
+  const L=$("#log"); L.appendChild(d); L.scrollTop=L.scrollHeight;
+}
+
+// tazeleSag=true SADECE kullanici bir sey yaptiginda. Otomatik yenileme
+// sag paneli asla yeniden cizmez — yoksa acik form ve yazdigin metin ucar.
+async function yukle(tazeleSag){
+  const d=await api("/api/isler");
+  ISLER=d.isler;
+  cizSol();
+  if(tazeleSag) cizSag();
+}
+
+function cizSol(){
+  if(SEKME!=="videolar"){ $("#sol").innerHTML=""; return; }
+  let h=`<div style="padding:14px 18px;border-bottom:1px solid var(--line)">
+    <button class="b esas" style="width:100%" onclick="yeniIs()">+ Yeni video</button></div>`;
+  if(!ISLER.length) h+=`<div class="bos">Henüz iş yok</div>`;
+  ISLER.forEach(i=>{
+    h+=`<div class="is ${SECILI===i.ad?"on":""}" onclick="sec('${i.ad}')">
+      <div class="ad">${esc(i.baslik).slice(0,42)}</div>
+      <div class="alt">
+        <span class="rozet ${i.format==="short"?"short":""}">${i.format==="short"?"SHORTS":"UZUN"}</span>
+        <span class="rozet ${i.senaryo?"ok":"yok"}">senaryo</span>
+        <span class="rozet ${i.gorsel?"ok":"yok"}">${i.gorsel||0} görsel</span>
+        <span class="rozet ${i.sesParca?"ok":"yok"}">ses</span>
+        ${i.video?`<span class="rozet ok">video ${i.video.mb}MB</span>`:""}
+      </div></div>`;
+  });
+  $("#sol").innerHTML=h;
+}
+
+function yeniIs(){
+  SEKME="videolar"; EKRAN="yeni";
+  $("#sag").innerHTML=`
+  <div class="ust"><div><h2>Yeni video</h2>
+    <div class="kucuk">Konuyu yaz — gerisi buna göre kurulur</div></div></div>
+
+  <div class="kart">
+    <div class="alan">
+      <label>Ne istiyorsun?</label>
+      <textarea id="nKonu" style="min-height:130px" placeholder="Ne istersen yaz. Örnekler:
+
+Ronaldo'nun en iyi golleri ve neden bu kadar iyi olduğu
+Bir kafe zinciri için reklam videosu — sabah kahvesi, taze çekirdek, sıcak atmosfer
+Yapay zekanın hastalıklara tedavi bulması
+Roma İmparatorluğu neden çöktü"></textarea>
+    </div>
+    <div class="alan">
+      <label>Video başlığı</label>
+      <input id="nBaslik" placeholder="YouTube'da görünecek başlık">
+    </div>
+    <div class="grid">
+      <div class="alan"><label>Format</label>
+        <select id="nFormat">
+          <option value="long">Uzun video — 16:9</option>
+          <option value="short">Shorts — 9:16 (max 45 sn)</option>
+        </select></div>
+      <div class="alan"><label>Klasör adı</label>
+        <input id="nAd" placeholder="başlıktan otomatik"></div>
+    </div>
+    <div class="satir" style="margin-top:6px">
+      <button class="b esas" style="padding:14px 26px;font-size:15px;font-weight:600"
+        onclick="yeniOlustur(true)">🚀 ÜRET</button>
+      <button class="b" onclick="yeniOlustur(false)">sadece oluştur, sonra üretirim</button>
+      <button class="b" onclick="vazgec()">Vazgeç</button>
+    </div>
+    <div class="not">ÜRET dedin mi: senaryoyu yazar, görselleri bulur, seslendirir, videoyu kurar.
+      Görselleri senaryodan kendisi çıkarır — konu ne olursa olsun.</div>
+  </div>`;
+
+  $("#nBaslik").addEventListener("input",e=>{
+    if(!$("#nAd").dataset.elle) $("#nAd").value=slug(e.target.value);
+  });
+  $("#nAd").addEventListener("input",e=>{ e.target.dataset.elle="1"; });
+}
+
+async function yeniOlustur(hemenUret){
+  const konu=$("#nKonu").value.trim();
+  const baslik=$("#nBaslik").value.trim();
+  const ad=$("#nAd").value.trim()||slug(baslik);
+  if(!konu) return alert("Ne istediğini yaz");
+  if(!baslik) return alert("Video başlığı gerekli");
+  if(!ad) return alert("Klasör adı çıkarılamadı — elle yaz");
+
+  const r=await api("/api/yeni",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ad,baslik,nis:konu,format:$("#nFormat").value})});
+  if(r.hata) return alert(r.hata);
+
+  SECILI=r.ad; EKRAN="is"; await yukle(true);
+  logYaz("yeni iş: "+r.ad,"ok");
+  if(hemenUret) calistir("hepsi",r.ad);
+}
+
+function vazgec(){ EKRAN="is"; cizSag(); }
+
+function ayrintiAc(){
+  const d=$("#tekTek"); if(d) d.style.display = d.style.display==="none" ? "block" : "none";
+}
+
+function sec(ad){ SECILI=ad; EKRAN="is"; cizSol(); cizSag(); }
+
+function cizSag(){
+  if(EKRAN==="yeni") return;          // yeni video formu acikken uzerine cizme
+  const S=$("#sag");
+  if(SEKME==="muzik") return S.innerHTML=muzikHTML();
+  if(SEKME==="kaynaklar") return S.innerHTML=kaynakHTML(), kaynakYukle();
+  const i=ISLER.find(x=>x.ad===SECILI);
+  if(!i) return S.innerHTML=`<div class="bos">Soldan bir iş seç veya yeni oluştur</div>`;
+
+  S.innerHTML=`
+  <div class="ust">
+    <div>
+      <h2>${esc(i.baslik)}</h2>
+      <div class="kucuk">${i.ad} · ${i.format==="short"?"Shorts 9:16":"Uzun 16:9"}
+        ${i.kelime?` · ${i.kelime} kelime · ~${i.dakika} dk`:""}</div>
+    </div>
+    <div class="satir">
+      ${i.video?`<button class="b" onclick="klasorAc('${i.ad}','video')">📁 Videoyu aç</button>`:""}
+      <button class="b" onclick="klasorAc('${i.ad}','')">📂 Klasör</button>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h3>Üretim</h3>
+    <button class="b esas" style="width:100%;padding:16px;font-size:15px;font-weight:600"
+      onclick="calistir('hepsi','${i.ad}')">🚀 KONUDAN VİDEOYA — hepsini yap</button>
+    <div class="not">${i.senaryo
+      ? `Senaryo hazır (${i.kelime} kelime · ~${i.dakika} dk). Görselleri çeker, seslendirir, videoyu kurar.`
+      : `Senaryoyu <b>panel yazacak</b> (vidIQ), sonra görselleri çeker, seslendirir, videoyu kurar. Tek tuş.`}</div>
+    <div class="satir" style="margin-top:12px">
+      <button class="b mini" onclick="ayrintiAc()">tek tek çalıştır ▾</button>
+    </div>
+    <div id="tekTek" style="display:none;margin-top:8px">
+      <div class="satir">
+        <button class="b" onclick="calistir('senaryo','${i.ad}')">🖊️ Senaryo yaz</button>
+        <button class="b" onclick="calistir('gorsel','${i.ad}')">🖼️ Görselleri bul</button>
+        <button class="b" onclick="calistir('ses','${i.ad}')">🎙️ Seslendir</button>
+        <button class="b" onclick="calistir('video','${i.ad}')">🎬 Videoyu kur</button>
+        <button class="b mini" onclick="calistir('formul','${i.ad}')">formül kartı</button>
+        <button class="b mini" onclick="calistir('prompt','${i.ad}')">prompt kartı</button>
+      </div>
+      <div class="not">Bir adım hata verirse sadece onu tekrar çalıştırmak için.
+        Görselleri bul: konu ne olursa olsun senaryodan arama yapar.</div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h3>Senaryo <span class="kucuk">(paragraf paragraf, aralarında boş satır)</span></h3>
+    <textarea id="senaryo" placeholder="Seslendirme metnini buraya yaz..."></textarea>
+    <div class="satir" style="margin-top:11px">
+      <button class="b esas" onclick="kaydet('senaryo')">Kaydet</button>
+      <span class="kucuk" id="sayac"></span>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h3>Türkçe altyazı <span class="kucuk">(isteğe bağlı — paragraf sayısı senaryoyla aynı olmalı)</span></h3>
+    <textarea id="altyazi" style="min-height:200px" placeholder="Boş bırakırsan altyazı İngilizce olur."></textarea>
+    <div class="satir" style="margin-top:11px">
+      <button class="b" onclick="kaydet('altyazi')">Kaydet</button>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h3>Görünüm — geçiş, efekt, renk</h3>
+    <div class="grid">
+      <div class="alan"><label>Geçiş tipi</label>
+        <select id="gGecis">
+          <optgroup label="Klasik">
+            <option value="fade">Yumuşak geçiş (fade)</option>
+            <option value="dissolve">Erime (dissolve)</option>
+            <option value="fadeblack">Siyaha kararma</option>
+            <option value="fadewhite">Beyaza patlama</option>
+          </optgroup>
+          <optgroup label="Kaydırma">
+            <option value="slideleft">Sola kaydır</option>
+            <option value="slideright">Sağa kaydır</option>
+            <option value="slideup">Yukarı kaydır</option>
+            <option value="slidedown">Aşağı kaydır</option>
+            <option value="smoothleft">Yumuşak sol</option>
+            <option value="smoothright">Yumuşak sağ</option>
+          </optgroup>
+          <optgroup label="Silme">
+            <option value="wipeleft">Sil — sol</option>
+            <option value="wiperight">Sil — sağ</option>
+            <option value="wipeup">Sil — yukarı</option>
+            <option value="wipedown">Sil — aşağı</option>
+            <option value="wipetl">Sil — köşeden</option>
+          </optgroup>
+          <optgroup label="Şekil">
+            <option value="circleopen">Daire açılma</option>
+            <option value="circleclose">Daire kapanma</option>
+            <option value="circlecrop">Daire kırpma</option>
+            <option value="rectcrop">Kare kırpma</option>
+            <option value="radial">Radyal süpürme</option>
+            <option value="vertopen">Dikey açılma</option>
+            <option value="horzopen">Yatay açılma</option>
+          </optgroup>
+          <optgroup label="Efektli">
+            <option value="pixelize">Pikselleşme</option>
+            <option value="hblur">Bulanıklaşma</option>
+            <option value="distance">Mesafe</option>
+            <option value="squeezeh">Yatay sıkışma</option>
+            <option value="squeezev">Dikey sıkışma</option>
+            <option value="diagtl">Çapraz</option>
+            <option value="hlslice">Dilimleme</option>
+          </optgroup>
+        </select></div>
+
+      <div class="alan"><label>Geçiş süresi (sn)</label>
+        <input id="gSure" type="number" step="0.1" min="0.2" max="4" placeholder="0.8"></div>
+
+      <div class="alan"><label>Hareket efekti</label>
+        <select id="gEfekt">
+          <option value="zoom">Normal zoom (Ken Burns)</option>
+          <option value="yavas">Yavaş zoom — sakin</option>
+          <option value="hizli">Hızlı zoom — enerjik</option>
+          <option value="kaydir">Yana kaydırma (pan)</option>
+          <option value="yok">Hareket yok — sabit</option>
+        </select></div>
+
+      <div class="alan"><label>Renk tonu</label>
+        <select id="gRenk">
+          <option value="sinematik">Sinematik — koyu, soğuk</option>
+          <option value="sicak">Sıcak — turuncu, yaz</option>
+          <option value="soguk">Soğuk — mavi, gece</option>
+          <option value="canli">Canlı — doygun, parlak</option>
+          <option value="siyahbeyaz">Siyah-beyaz</option>
+          <option value="yok">Dokunma — orijinal</option>
+        </select></div>
+
+      <div class="alan"><label>Müzik seviyesi</label>
+        <input id="gMuzik" type="number" step="0.05" min="0" max="1" placeholder="0.25"></div>
+
+      <div class="alan"><label>Kanal adı (outro'da görünür)</label>
+        <input id="gKanal" placeholder="KANALIM"></div>
+    </div>
+    <div class="satir" style="margin-top:6px">
+      <button class="b esas" onclick="gorunumKaydet()">Uygula</button>
+      <span class="kucuk" id="gDurum"></span>
+      <span class="kucuk">Değiştirdikten sonra videoyu yeniden kur.</span>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h3>Ham ayarlar (JSON)</h3>
+    <textarea id="konu" style="min-height:260px"></textarea>
+    <div class="satir" style="margin-top:11px">
+      <button class="b" onclick="kaydet('konu')">Kaydet</button>
+      <span class="kucuk">sahneler · portreler · formüller · süreler</span>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h3>Görseller <span class="kucuk">(${i.gorsel} adet — beğenmediğine tıklayıp sil)</span></h3>
+    <div class="gorseller" id="gorseller"><div class="kucuk">yükleniyor…</div></div>
+  </div>`;
+
+  dosyaYukle(i.ad);
+  gorselYukle(i.ad);
+  $("#senaryo").addEventListener("input",e=>{
+    const k=e.target.value.split(/\s+/).filter(Boolean).length;
+    $("#sayac").textContent=`${k} kelime · ~${(k/151+0.5).toFixed(1)} dk`;
+  });
+}
+
+async function dosyaYukle(ad){
+  for(const t of ["senaryo","altyazi","konu"]){
+    const r=await api(`/api/dosya?is=${ad}&tur=${t==="konu"?"konu":t==="altyazi"?"altyazi":"senaryo"}`);
+    const el=$("#"+t); if(el) el.value=r.icerik||"";
+  }
+  const k=($("#senaryo").value||"").split(/\s+/).filter(Boolean).length;
+  $("#sayac").textContent=k?`${k} kelime · ~${(k/151+0.5).toFixed(1)} dk`:"";
+  gorunumDoldur();
+}
+
+function gorunumDoldur(){
+  let k={}; try{ k=JSON.parse($("#konu").value||"{}"); }catch(e){}
+  const s=(id,v,vars)=>{ const el=$(id); if(el&&v!==undefined&&v!==null) el.value=v; else if(el&&vars!==undefined) el.value=vars; };
+  s("#gGecis",k.gecis,"fade");
+  s("#gEfekt",k.efekt,"zoom");
+  s("#gRenk",k.renk,"sinematik");
+  if($("#gSure")) $("#gSure").value = k.gecisSure ?? "";
+  if($("#gMuzik")) $("#gMuzik").value = k.muzikSeviyesi ?? "";
+  if($("#gKanal")) $("#gKanal").value = k.kanal ?? "";
+}
+
+async function gorunumKaydet(){
+  const g={is:SECILI,
+    gecis:$("#gGecis").value, efekt:$("#gEfekt").value, renk:$("#gRenk").value,
+    gecisSure:$("#gSure").value, muzikSeviyesi:$("#gMuzik").value, kanal:$("#gKanal").value};
+  await api("/api/gorunum",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(g)});
+  $("#gDurum").textContent="kaydedildi";
+  logYaz(`görünüm güncellendi: ${g.gecis} / ${g.efekt} / ${g.renk}`,"ok");
+  dosyaYukle(SECILI);
+  setTimeout(()=>{ const d=$("#gDurum"); if(d) d.textContent=""; },2500);
+}
+
+async function kaydet(tur){
+  const el=$("#"+tur);
+  const r=await api(`/api/dosya?is=${SECILI}&tur=${tur}`,{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({icerik:el.value})});
+  logYaz(`kaydedildi: ${tur}`,"ok");
+  if(tur==="senaryo") yukle();
+}
+
+async function gorselYukle(ad){
+  const r=await api(`/api/gorseller?is=${ad}`);
+  const el=$("#gorseller"); if(!el) return;
+  if(!r.gorseller.length) return el.innerHTML=`<div class="kucuk">Henüz görsel yok</div>`;
+  el.innerHTML=r.gorseller.map(g=>`
+    <div class="gz">
+      <img src="/onizle/${ad}/${g.sahne}/${encodeURIComponent(g.ad)}" loading="lazy">
+      <button class="sil" onclick="gorselSil('${ad}','${g.sahne}','${g.ad.replace(/'/g,"\\'")}')">×</button>
+      <div class="et">${esc(g.sahne)}</div>
+    </div>`).join("");
+}
+
+async function gorselSil(is,sahne,ad){
+  await api("/api/gorsel-sil",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({is,sahne,ad})});
+  gorselYukle(is); yukle();
+}
+
+async function calistir(tur,is,ek){
+  const g=Object.assign({tur,is},ek||{});
+  const r=await api("/api/calistir",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(g)});
+  if(r.hata) return alert(r.hata);
+  logYaz("▶ "+tur+" başladı","cmd");
+  izle(r.id);
+}
+
+function izle(id){
+  if(IZLE) clearInterval(IZLE);
+  let gorulen=0;
+  $("#logdurum").textContent="çalışıyor…";
+  IZLE=setInterval(async()=>{
+    const k=await api("/api/log?id="+id);
+    if(!k||k.hata) return;
+    for(let i=gorulen;i<k.satirlar.length;i++){
+      const s=k.satirlar[i];
+      logYaz(s, s.startsWith("✓")?"ok" : s.startsWith("✗")?"err" : null);
+    }
+    gorulen=k.satirlar.length;
+    if(k.bitti){ clearInterval(IZLE); IZLE=null; $("#logdurum").textContent="hazır"; yukle(true); }
+  },900);
+}
+
+function klasorAc(is,klasor){
+  api("/api/ac",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({is,klasor})});
+}
+
+function muzikHTML(){
+  return `
+  <div class="ust"><div><h2>Müzik & DJ Mix</h2>
+    <div class="kucuk">Şarkı klasörünü ver, BPM+ton analizi yapıp armonik mix kursun</div></div></div>
+  <div class="kart">
+    <h3>Klasör</h3>
+    <div class="alan"><label>Şarkıların bulunduğu klasör</label>
+      <input id="mklasor" value="C:\\Users\\Administrator\\Desktop\\SUNO AFROBEAT"></div>
+    <div class="alan"><label>Mix adı</label><input id="mad" value="DJ MIX"></div>
+    <div class="satir">
+      <button class="b" onclick="muzikCalistir('tonMuzik')">🎼 BPM + Ton analizi</button>
+      <button class="b esas" onclick="muzikCalistir('mix')">🎧 MİX KUR</button>
+    </div>
+    <div class="not">Önce analiz, sonra mix. Analiz <code>_analiz.json</code> üretir,
+      mix onu okur. Sıralamayı elle değiştirmek istersen klasöre <code>SIRA.txt</code> koy.</div>
+  </div>`;
+}
+function muzikCalistir(tur){
+  calistir(tur,null,{klasor:$("#mklasor").value,mixAd:$("#mad").value});
+}
+
+function kaynakHTML(){
+  return `
+  <div class="ust">
+    <div><h2>Kaynaklar & API Anahtarları</h2>
+      <div class="kucuk">Anahtarlar bilgisayarında <code>.env</code> dosyasında kalır, hiçbir yere gitmez</div></div>
+    <div class="satir"><button class="b esas" onclick="anahtarTest()">🔌 Anahtarları test et</button></div>
+  </div>
+
+  <div class="kart" id="testKart" style="display:none">
+    <h3>Bağlantı testi</h3>
+    <div id="testSonuc"></div>
+  </div>
+
+  <div class="kart">
+    <h3>Anahtar gerektirmeyenler — şu an aktif</h3>
+    <div class="satir">
+      <span class="rozet ok">NASA — fotoğraf + video</span>
+      <span class="rozet ok">Wikimedia Commons — fotoğraf</span>
+    </div>
+    <div class="not">İkisi de ücretsiz, sınırsız, kayıt istemiyor.</div>
+  </div>
+
+  <div class="kart" style="border-color:var(--vurgu)">
+    <h3>🖊️ Senaryo motoru — vidIQ</h3>
+    <div class="not" style="margin-top:0;margin-bottom:10px">
+      Bunu girersen panel <b>senaryoyu kendi yazar</b>. Sen sadece konuyu yazarsın.<br>
+      Lifetime Max üyeliğinde zaten var — <b>ek para yok</b>. Senaryo dakikası 1 kredi.
+    </div>
+    <div class="alan"><label>VIDIQ — anahtarı buradan al: app.vidiq.com/account/settings/mcp</label>
+      <input id="VIDIQ_KEY" placeholder="vidIQ MCP anahtarını yapıştır"></div>
+    <div class="satir"><button class="b esas" onclick="anahtarKaydet()">Kaydet</button>
+      <span class="kucuk" id="anahtarDurum2"></span>
+      <span id="vidiqDurum"></span></div>
+    <div class="not">vidIQ sitesinde: Account → Settings → MCP → Generate key. Tek tıkla iptal edilebiliyor.</div>
+  </div>
+
+  <div class="kart">
+    <h3>Görsel kaynakları — ücretsiz anahtarla açılanlar</h3>
+    <div class="alan"><label>PEXELS — gerçek dünya video + fotoğraf (yemek, mekan, insan) · pexels.com/api</label>
+      <input id="PEXELS_KEY" placeholder="anahtarı yapıştır"></div>
+    <div class="alan"><label>PIXABAY — video + fotoğraf, geniş arşiv · pixabay.com/api/docs</label>
+      <input id="PIXABAY_KEY" placeholder="anahtarı yapıştır"></div>
+    <div class="alan"><label>UNSPLASH — yüksek kalite fotoğraf · unsplash.com/developers</label>
+      <input id="UNSPLASH_KEY" placeholder="anahtarı yapıştır"></div>
+    <div class="satir"><button class="b esas" onclick="anahtarKaydet()">Kaydet</button>
+      <span class="kucuk" id="anahtarDurum"></span></div>
+    <div class="not">Üçü de ücretsiz kayıt, dakikalar içinde anahtar veriyor.
+      Pexels ve Pixabay <b>video klip</b> de veriyor — yemek/mekan videoları için gerekli olan bu.</div>
+  </div>
+
+  <div class="kart yakinda">
+    <h3>Sırada</h3>
+    <div class="not">
+      • <b>Video klip desteği</b> — fotoğraf yerine hareketli görüntü (Pexels/Pixabay/NASA video)<br>
+      • <b>Canva</b> — MCP bağlantısı kurulu, yetkilendirme bekliyor<br>
+      • <b>Kırpma & yeniden sıralama</b> — görselleri panelden düzenle<br>
+      • <b>Thumbnail üretici</b> — panelden tek tık<br>
+      • <b>YouTube yükleme</b> — API ile doğrudan
+    </div>
+  </div>`;
+}
+const ANAHTARLAR=["VIDIQ_KEY","PEXELS_KEY","PIXABAY_KEY","UNSPLASH_KEY"];
+
+async function anahtarTest(){
+  const kart=$("#testKart"), kutu=$("#testSonuc");
+  if(!kart) return;
+  kart.style.display="block";
+  kutu.innerHTML=`<div class="kucuk">test ediliyor…</div>`;
+  const d=await api("/api/anahtar-test");
+  const ad={vidiq:"vidIQ — senaryo motoru",pexels:"Pexels — görseller",pixabay:"Pixabay — görseller"};
+  kutu.innerHTML=Object.keys(ad).map(k=>{
+    const r=d[k]||{ok:false,mesaj:"bilinmiyor"};
+    return `<div class="satir" style="margin:7px 0">
+      <span class="rozet ${r.ok?"ok":"yok"}">${r.ok?"ÇALIŞIYOR":"YOK"}</span>
+      <b>${ad[k]}</b> <span class="kucuk">${esc(r.mesaj)}</span></div>`;
+  }).join("");
+  if(d.vidiq&&!d.vidiq.ok) kutu.innerHTML+=
+    `<div class="not">Senaryo motoru olmadan ÜRET tuşu çalışmaz.
+     Yeni anahtar: <b>app.vidiq.com/account/settings/mcp</b> → Generate key → kopyala butonuyla al, yukarı yapıştır.</div>`;
+}
+
+async function kaynakYukle(){
+  const d=await api("/api/anahtarlar");
+  for(const k of ANAHTARLAR){
+    const el=$("#"+k); if(el&&d[k]) el.placeholder=d[k]+" (kayıtlı)";
+  }
+  const v=$("#vidiqDurum");
+  if(v) v.innerHTML = d.VIDIQ_KEY
+    ? `<span class="rozet ok">senaryo motoru AÇIK</span>`
+    : `<span class="rozet yok">senaryo motoru kapalı — anahtar gerek</span>`;
+}
+
+async function anahtarKaydet(){
+  const g={};
+  for(const k of ANAHTARLAR){ const el=$("#"+k); const v=el?el.value.trim():""; if(v) g[k]=v; }
+  if(!Object.keys(g).length) return;
+  await api("/api/anahtarlar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(g)});
+  for(const id of ["#anahtarDurum","#anahtarDurum2"]){ const e=$(id); if(e) e.textContent="kaydedildi ✓"; }
+  for(const k of ANAHTARLAR){ const el=$("#"+k); if(el) el.value=""; }
+  kaynakYukle(); yukle(false);
+  setTimeout(()=>{ for(const id of ["#anahtarDurum","#anahtarDurum2"]){ const e=$(id); if(e) e.textContent=""; } },2500);
+}
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); SEKME=b.dataset.t; EKRAN="is"; cizSol(); cizSag();
+});
+
+yukle(true);
+setInterval(()=>{ if(!IZLE) yukle(false); },8000);
+</script>
+</body>
+</html>
