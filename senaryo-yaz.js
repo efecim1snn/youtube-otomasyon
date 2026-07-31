@@ -161,11 +161,14 @@ function shortsKirp(metin, hedef) {
 
   const baslik = konu.baslik_en || is;
   const notKonu = (konu._not || "").replace(/^Konu:\s*/i, "").replace(/^Nis:\s*/i, "").trim();
-  // kisa = dikey format (YouTube Shorts veya Instagram Reels)
-  const kisa = konu.aspect === "9:16" || konu.format === "short" || konu.format === "reels";
-  const kisaSn = konu.hedefSaniye || (konu.format === "reels" ? 80 : 40);
-  // UZUN VIDEO ALT SINIRI 15 DK (Osman'in standardi). Dikey formatlar haric.
-  const hedefDk = kisa ? 1 : Math.max(15, konu.hedefDakika || 15);
+  // Sure tek kaynaktan gelir: konu.json > hedefSaniye (kullanici belirler).
+  // Eski isler icin hedefDakika'ya geri dusuyoruz.
+  const dikey = konu.aspect === "9:16" || konu.format === "short" || konu.format === "reels";
+  const hedefSn = konu.hedefSaniye || (konu.hedefDakika ? konu.hedefDakika * 60 : (dikey ? 40 : 900));
+  const hedefDk = hedefSn / 60;
+  // 60 saniyenin altindaki metinler daha yavas okunuyor (kisa cumleler)
+  const kelimeHiz = hedefSn <= 60 ? 137 : 151;
+  const kisa = hedefSn <= 60;   // sert kirpma sadece gercekten kisa videolarda
   // OLCULEN: vidIQ istenen dakikanin ~1.55 kati metin yaziyor
   // (3 dk istendi -> 716 kelime = 4.7 dk @151 kel/dk). O yuzden bolerek istiyoruz.
   const dakika = kisa ? 1 : Math.min(60, Math.max(1, Math.round(hedefDk / 1.55)));
@@ -178,9 +181,11 @@ function shortsKirp(metin, hedef) {
 
   console.log("konu    : " + notKonu.slice(0, 90));
   console.log("baslik  : " + baslik);
-  console.log("format  : " + (kisa
-    ? (konu.format === "reels" ? "Instagram Reels" : "YouTube Shorts") + " (<=" + kisaSn + " sn, ~" + hedefKelime + " kelime)"
-    : "hedef ~" + hedefDk + " dk (vidIQ'dan " + dakika + " isteniyor)"));
+  const formatAd = konu.format === "reels" ? "Instagram Reels"
+                 : konu.format === "short" ? "YouTube Shorts" : "YouTube uzun video";
+  console.log("format  : " + formatAd + " · hedef " +
+    (hedefSn < 60 ? hedefSn + " sn" : (hedefSn / 60).toFixed(1) + " dk") +
+    " (~" + hedefKelime + " kelime)");
   console.log("vidIQ'ya gonderiliyor…");
 
   await istek({
@@ -234,7 +239,7 @@ function shortsKirp(metin, hedef) {
 
   // OLCULEN: vidIQ tek cagride ~1400 kelimede tikaniyor; 15 dk (2265 kelime)
   // tek istekle GELMIYOR. Hedefe ulasana kadar yeni bolumler yazdirip ekliyoruz.
-  const hedefKelime = kisa ? Math.round(kisaSn / 60 * 137) : Math.round(hedefDk * 151);
+  const hedefKelime = Math.round(hedefSn / 60 * kelimeHiz);
   const ACILAR = [
     "Cover the origins and the background the audience needs first.",
     "Now go deeper: the mechanisms, the specifics, the concrete examples and numbers.",
@@ -268,8 +273,8 @@ function shortsKirp(metin, hedef) {
   // yoksa 48 saniyelik video cikip sebebi anlasilmiyor.
   if (!kisa && k < hedefKelime * 0.8) {
     throw new Error("Senaryo " + k + " kelimede kaldi (~" + (sn / 60).toFixed(1) + " dk), hedef " +
-      hedefDk + " dk (" + hedefKelime + " kelime). Konuyu birkac cumleyle daha ayrintili yaz " +
-      "(hangi alt basliklar islensin) ve tekrar dene.");
+      hedefDk.toFixed(1) + " dk (" + hedefKelime + " kelime). Konuyu birkac cumleyle daha " +
+      "ayrintili yaz (hangi alt basliklar islensin) ve tekrar dene.");
   }
 
   const sesDizin = path.join(KLASOR, "Voice");
@@ -286,5 +291,7 @@ function shortsKirp(metin, hedef) {
   console.log("✓ senaryo yazildi: Voice/SESLENDIRME-TAM-METIN.txt");
   console.log("  " + k + " kelime · ~" + Math.floor(sn / 60) + " dk " + (sn % 60) + " sn");
   console.log("  " + metin.split(/\n\s*\n/).length + " paragraf");
-  if (kisa && sn > kisaSn) console.log("  ⚠ " + kisaSn + " saniyeyi asiyor — kisalt");
+  if (sn > hedefSn * 1.15) console.log("  ⚠ hedefi asiyor (" + hedefSn + " sn) — kisalt");
+  if (konu.format === "reels" && sn > 180)
+    console.log("  ⓘ 3 dakikayi asiyor: Instagram bunu takipcin olmayanlara onermez.");
 })().catch(e => { console.error("✗ " + e.message); process.exit(1); });

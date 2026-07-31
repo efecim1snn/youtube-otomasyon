@@ -267,9 +267,12 @@ const server = http.createServer(async (req, res) => {
       // Reels'te abone-ol kapanisi yok — Instagram'da anlamsiz
       outro: reels ? 0 : short ? 3 : 12,
       muzikSeviyesi: 0.25,
-      // Shorts <=45 sn, Reels <=90 sn, uzun video >=15 dk
-      hedefSaniye: reels ? 80 : short ? 40 : undefined,
-      hedefDakika: dikey ? undefined : Math.max(15, b.hedefDakika || 15),
+      // Sureyi kullanici belirler. Varsayilanlar:
+      //   Shorts 40 sn  — YouTube 45 sn siniri
+      //   Reels 180 sn  — Instagram 3 dk ustunu takipcisi olmayanlara onermiyor
+      //   Uzun  15 dk   — Osman'in standardi, altina dusmez
+      hedefSaniye: Math.round(60 * (Number(b.sureDk) > 0 ? Number(b.sureDk)
+                                  : reels ? 3 : short ? 0.67 : 15)),
       _not: String(b.nis || "").trim() || undefined,
     };
 

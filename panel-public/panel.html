@@ -179,8 +179,11 @@ Roma İmparatorluğu neden çöktü"></textarea>
         <select id="nFormat">
           <option value="long">YouTube uzun video — 16:9, en az 15 dk</option>
           <option value="short">YouTube Shorts — 9:16, max 45 sn</option>
-          <option value="reels">Instagram Reels — 9:16, max 90 sn</option>
+          <option value="reels">Instagram Reels — 9:16</option>
         </select></div>
+      <div class="alan"><label>Süre (dakika)</label>
+        <input id="nSure" type="number" step="0.5" min="0.2" max="30" placeholder="formata göre">
+        <div class="not" id="sureNot" style="margin-top:4px"></div></div>
       <div class="alan"><label>Klasör adı</label>
         <input id="nAd" placeholder="başlıktan otomatik"></div>
     </div>
@@ -197,6 +200,21 @@ Roma İmparatorluğu neden çöktü"></textarea>
   $("#nBaslik").addEventListener("input",e=>{
     if(!$("#nAd").dataset.elle) $("#nAd").value=slug(e.target.value);
   });
+
+  const SURE_VARSAYILAN={long:15,short:0.67,reels:3};
+  const SURE_NOT={
+    long:"YouTube uzun video. 15 dakikanın altına düşürme.",
+    short:"YouTube Shorts. 45 saniyeyi (0.75 dk) aşarsa Shorts sayılmaz.",
+    reels:"Instagram Reels. 3 dakikayı aşarsan Instagram takipçin olmayanlara önermiyor — teknik sınır 20 dk."
+  };
+  function sureGuncelle(){
+    const f=$("#nFormat").value, s=$("#nSure");
+    if(!s.dataset.elle) s.value=SURE_VARSAYILAN[f];
+    $("#sureNot").textContent=SURE_NOT[f]||"";
+  }
+  $("#nFormat").addEventListener("change",sureGuncelle);
+  $("#nSure").addEventListener("input",e=>{ e.target.dataset.elle="1"; });
+  sureGuncelle();
   $("#nAd").addEventListener("input",e=>{ e.target.dataset.elle="1"; });
 }
 
@@ -209,7 +227,8 @@ async function yeniOlustur(hemenUret){
   if(!ad) return alert("Klasör adı çıkarılamadı — elle yaz");
 
   const r=await api("/api/yeni",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ad,baslik,nis:konu,format:$("#nFormat").value})});
+    body:JSON.stringify({ad,baslik,nis:konu,format:$("#nFormat").value,
+      sureDk:parseFloat($("#nSure").value)||0})});
   if(r.hata) return alert(r.hata);
 
   SECILI=r.ad; EKRAN="is"; await yukle(true);

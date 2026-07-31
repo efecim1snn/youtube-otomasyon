@@ -64,10 +64,13 @@ function temizle(ham) {
 
   const baslik = konu.baslik_en || is;
   const notKonu = String(konu._not || "").trim();
-  const kisa = konu.aspect === "9:16" || konu.format === "short";
-  // UZUN VIDEO ALT SINIRI 15 DK — Osman'in standardi
-  const hedefDk = kisa ? 1 : Math.max(15, konu.hedefDakika || 15);
-  const hedefKelime = kisa ? 95 : Math.round(hedefDk * 151);
+  // Sure tek kaynaktan gelir: konu.json > hedefSaniye (kullanici belirler).
+  const dikey = konu.aspect === "9:16";
+  const hedefSn = konu.hedefSaniye || (konu.hedefDakika ? konu.hedefDakika * 60 : (dikey ? 40 : 900));
+  const hedefDk = hedefSn / 60;
+  const kisa = hedefSn <= 60;                       // sert kelime tavani sadece burada
+  const kelimeHiz = kisa ? 137 : 151;
+  const hedefKelime = Math.round(hedefSn / 60 * kelimeHiz);
 
   if (!notKonu) {
     console.error("✗ Konu yazilmamis (konu.json > _not bos).");
@@ -77,8 +80,10 @@ function temizle(ham) {
 
   console.log("konu    : " + notKonu.slice(0, 100));
   console.log("baslik  : " + baslik);
-  console.log("hedef   : " + (kisa ? "Shorts, ~40 sn (~95 kelime)"
-                                   : hedefDk + " dakika (~" + hedefKelime + " kelime)"));
+  const formatAd = konu.format === "reels" ? "Instagram Reels"
+                 : konu.format === "short" ? "YouTube Shorts" : "YouTube uzun video";
+  console.log("hedef   : " + formatAd + " · " +
+    (hedefSn < 60 ? hedefSn + " sn" : hedefDk.toFixed(1) + " dk") + " (~" + hedefKelime + " kelime)");
   console.log("model   : claude-opus-5");
   console.log("");
 
@@ -115,8 +120,8 @@ function temizle(ham) {
         "TOPIC: " + notKonu,
         "TITLE: " + baslik,
         "",
-        "HARD LIMIT: 90 to 100 words TOTAL. This is a strict ceiling — the video",
-        "must stay under 45 seconds. Count your words.",
+        "HARD LIMIT: about " + hedefKelime + " words TOTAL. This is a strict ceiling —",
+        "the video must stay under " + hedefSn + " seconds. Count your words.",
         "Structure: hook (1 sentence) → the substance (2-3 sentences) → a turn that",
         "makes the viewer sit up (1 sentence). Three short paragraphs.",
       ].join("\n")
@@ -127,7 +132,7 @@ function temizle(ham) {
         "TITLE: " + baslik,
         "",
         "LENGTH: " + hedefKelime + " words MINIMUM. This is the single most important",
-        "requirement — the video must run " + hedefDk + " minutes. A shorter script is a",
+        "requirement — the video must run " + hedefDk.toFixed(1) + " minutes. A shorter script is a",
         "failed script. Write the full length; do not summarise, do not stop early,",
         "do not write an outline.",
         "",
@@ -173,7 +178,7 @@ function temizle(ham) {
 
   if (!kisa && k < hedefKelime * 0.8) {
     throw new Error("Senaryo " + k + " kelimede kaldi (~" + (sn / 60).toFixed(1) + " dk), hedef " +
-      hedefDk + " dk. Konuyu biraz daha ayrintili yazip tekrar dene.");
+      hedefDk.toFixed(1) + " dk. Konuyu biraz daha ayrintili yazip tekrar dene.");
   }
 
   const sesDizin = path.join(KLASOR, "Voice");
@@ -191,7 +196,9 @@ function temizle(ham) {
   console.log("  " + k + " kelime · ~" + Math.floor(sn / 60) + " dk " + (sn % 60) + " sn · " +
               metin.split(/\n\s*\n/).length + " paragraf");
   console.log("  maliyet: ~$" + maliyet.toFixed(3));
-  if (kisa && sn > 45) console.log("  ⚠ 45 saniyeyi asiyor");
+  if (sn > hedefSn * 1.15) console.log("  ⚠ hedefi asiyor (" + hedefSn + " sn) — kisalt");
+  if (konu.format === "reels" && sn > 180)
+    console.log("  ⓘ 3 dakikayi asiyor: Instagram bunu takipcin olmayanlara onermez.");
 })().catch(e => {
   console.error("✗ " + (e.status === 401 ? "ANTHROPIC_API_KEY gecersiz." : e.message));
   process.exit(1);
