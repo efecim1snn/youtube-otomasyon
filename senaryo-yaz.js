@@ -168,6 +168,7 @@ function shortsKirp(metin, hedef) {
   const hedefDk = hedefSn / 60;
   // 60 saniyenin altindaki metinler daha yavas okunuyor (kisa cumleler)
   const kelimeHiz = hedefSn <= 60 ? 137 : 151;
+  const hedefKelime = Math.round(hedefSn / 60 * kelimeHiz);
   const kisa = hedefSn <= 60;   // sert kirpma sadece gercekten kisa videolarda
   // OLCULEN: vidIQ istenen dakikanin ~1.55 kati metin yaziyor
   // (3 dk istendi -> 716 kelime = 4.7 dk @151 kel/dk). O yuzden bolerek istiyoruz.
@@ -239,7 +240,6 @@ function shortsKirp(metin, hedef) {
 
   // OLCULEN: vidIQ tek cagride ~1400 kelimede tikaniyor; 15 dk (2265 kelime)
   // tek istekle GELMIYOR. Hedefe ulasana kadar yeni bolumler yazdirip ekliyoruz.
-  const hedefKelime = Math.round(hedefSn / 60 * kelimeHiz);
   const ACILAR = [
     "Cover the origins and the background the audience needs first.",
     "Now go deeper: the mechanisms, the specifics, the concrete examples and numbers.",
