@@ -399,7 +399,13 @@ async function nasa(q) {
 
   for (let i = 0; i < paragraflar.length; i++) {
     const no = String(i + 1).padStart(2, "0");
-    const adaylar = ifadeCikar(paragraflar[i], genelSayim, toplamKelime, capa, paragrafta);
+    // konu.json > sahneKelimeleri[i] varsa OTOMATIK CIKARIM DEVRE DISI.
+    // Soyut paragraflarda otomatik cikarim "ceiling", "changed" gibi
+    // ise yaramaz kelimeler seciyor; elle yazmak her zaman daha iyi.
+    const elle = Array.isArray(konu.sahneKelimeleri) ? konu.sahneKelimeleri[i] : null;
+    const adaylar = elle
+      ? (Array.isArray(elle) ? elle.slice() : [String(elle)])
+      : ifadeCikar(paragraflar[i], genelSayim, toplamKelime, capa, paragrafta);
     if (!adaylar.length) adaylar.push(capa[0] || "abstract");
     const sahneAd = no + "-" + adaylar[0].toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 24);
     const klasor = path.join(VIS, sahneAd);
@@ -423,8 +429,12 @@ async function nasa(q) {
       if (havuz.length > onceki && !kullanilan) kullanilan = q;
     }
 
-    // ayni gorseli iki sahnede kullanma
-    havuz = havuz.filter(g => { const a = g.url.split("?")[0]; if (gorulen.has(a)) return false; gorulen.add(a); return true; });
+    // Ayni gorseli iki sahnede kullanma — AMA sahneyi bos birakma pahasina degil.
+    // Ayni arama kelimesi iki sahnede gecerse (ornegin "MRI scanner"), tum
+    // sonuclar ilk sahnede tukeniyor ve ikincisi bos kaliyordu.
+    const tazeler = havuz.filter(g => !gorulen.has(g.url.split("?")[0]));
+    if (tazeler.length >= Math.min(2, sahneBasina)) havuz = tazeler;
+    for (const g of havuz.slice(0, sahneBasina)) gorulen.add(g.url.split("?")[0]);
     // buyuk gorsel once
     havuz.sort((a, b) => (b.en * b.boy) - (a.en * a.boy));
 
