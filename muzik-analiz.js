@@ -5,8 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-const FF = process.env.LOCALAPPDATA + "\\Microsoft\\WinGet\\Links\\ffmpeg.exe";
-const FP = process.env.LOCALAPPDATA + "\\Microsoft\\WinGet\\Links\\ffprobe.exe";
+const FF = require("./ff-yol").ffmpeg;
+const FP = require("./ff-yol").ffprobe;
 const DIR = path.resolve(process.argv[2] || ".");
 const SR = 22050, HOP = 512;
 

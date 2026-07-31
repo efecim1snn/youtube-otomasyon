@@ -248,7 +248,7 @@ const server = http.createServer(async (req, res) => {
     fs.mkdirSync(path.join(dir, "Voice"), { recursive: true });
     // long  = YouTube uzun video, 16:9, en az 15 dk
     // short = YouTube Shorts,     9:16, en fazla 45 sn
-    // reels = Instagram Reels,    9:16, en fazla 90 sn
+    // reels = Instagram Reels,    9:16, sure serbest (varsayilan 3 dk)
     const reels = b.format === "reels";
     const short = b.format === "short";
     const dikey = short || reels;

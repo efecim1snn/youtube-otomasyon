@@ -6,7 +6,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const JOB = process.argv[2] || "003-long-ai-scientists";
-const FF = process.env.LOCALAPPDATA + "\\Microsoft\\WinGet\\Links\\ffmpeg.exe";
+const FF = require("./ff-yol").ffmpeg;
 const BASE = path.join(__dirname, "uretim", JOB);
 const VIS = path.join(BASE, "Visuals");
 

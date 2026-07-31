@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-const FF = process.env.LOCALAPPDATA + "\\Microsoft\\WinGet\\Links\\ffmpeg.exe";
+const FF = require("./ff-yol").ffmpeg;
 const OUT = path.resolve(process.argv[2] || path.join(__dirname, "tmp-test", "geri-sayim.mp4"));
 const W = Number(process.argv[3] || 1920), H = Number(process.argv[4] || 1080);
 const FPS = 30, N = 5;                       // 5 saniye

@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-const FF = process.env.LOCALAPPDATA + "\\Microsoft\\WinGet\\Links\\ffmpeg.exe";
+const FF = require("./ff-yol").ffmpeg;
 const OUT = "C:\\Users\\Administrator\\Desktop\\THREAD GORSELLERI";
 const MONO = "C\\:/Windows/Fonts/consola.ttf";
 const MONOB = "C\\:/Windows/Fonts/consolab.ttf";

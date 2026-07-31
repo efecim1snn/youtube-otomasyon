@@ -31,7 +31,7 @@ bitmiş MP4 + altyazı
 | | |
 |---|---|
 | **Node.js** | 18+ ([nodejs.org](https://nodejs.org)) |
-| **ffmpeg** | `winget install Gyan.FFmpeg` |
+| **ffmpeg** | Windows: `winget install Gyan.FFmpeg` · Mac: `brew install ffmpeg` · Linux: `sudo apt install ffmpeg`<br>Nasıl kurduğun fark etmez — PATH'te veya yaygın kurulum yerlerinde arar. |
 | **vidIQ anahtarı** | Senaryo yazımı + başlık puanlama — [app.vidiq.com/account/settings/mcp](https://app.vidiq.com/account/settings/mcp) |
 
 **Senaryo motoru iki seçenek:** vidIQ (üyeliğin varsa ek ücret yok) veya Anthropic API (senaryo başına ~10 sent, daha iyi kalite). İkisinden biri yeterli — Anthropic anahtarı girilirse panel onu tercih eder.
