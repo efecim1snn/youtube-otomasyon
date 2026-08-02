@@ -141,12 +141,30 @@ function icerik(s) {
   const sozcuk = m => String(m).toLowerCase().replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/).filter(w => w.length > 2 && !DURAK.has(w) && !/^\d+$/.test(w));
 
-  const bs = sozcuk(baslik), ks = sozcuk(notKonu);
+  // TOHUM INGILIZCE BASLIKTAN ALINIR — konu notundan DEGIL.
+  // Konu notu Turkce yazilinca ("yapay zekanin...") vidIQ Turkce YouTube
+  // tarafini arayip alakasiz kelimeler donduruyordu (risale-i nur, namaz...).
+  // Video Ingilizce; etiketler de Ingilizce olmali.
+  const TR = /[çğıöşüÇĞİÖŞÜ]/;
+  const ingilizceMi = s => s && !TR.test(s);
+
+  const bs = sozcuk(baslik);
+  // Senaryodan da kelime cikar — baslik kisa kalirsa yedek olsun
+  let senaryoKelime = [];
+  try {
+    const sen = fs.readFileSync(path.join(KLASOR, "Voice", "SESLENDIRME-TAM-METIN.txt"), "utf8");
+    const say = {};
+    for (const w of sozcuk(sen)) say[w] = (say[w] || 0) + 1;
+    senaryoKelime = Object.keys(say).sort((a, b) => say[b] - say[a]).slice(0, 6);
+  } catch (e) {}
+
   const tohumlar = [...new Set([
-    ks.slice(0, 2).join(" "),          // konudan iki kelime — en genel
-    bs.slice(0, 2).join(" "),          // basliktan iki kelime
-    ks[0] || "", bs[0] || "",          // tek kelime — en genis
-  ].filter(t => t && t.length > 2))];
+    bs.slice(0, 2).join(" "),                    // basliktan iki kelime
+    senaryoKelime.slice(0, 2).join(" "),         // senaryonun en sik iki kelimesi
+    bs[0] || "", senaryoKelime[0] || "",         // tek kelime — en genis
+    // konu notu SADECE Ingilizce yazilmissa kullanilir
+    ingilizceMi(notKonu) ? sozcuk(notKonu).slice(0, 2).join(" ") : "",
+  ].filter(t => t && t.length > 2 && ingilizceMi(t)))];
 
   let kl = [], kullanilanTohum = null;
   for (const tohum of tohumlar) {

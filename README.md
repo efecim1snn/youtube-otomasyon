@@ -24,7 +24,9 @@ bitmiş MP4 + altyazı
 - **İki dilli altyazı.** İngilizce seslendirme + Türkçe gömülü altyazı.
 - **Prosedürel intro/outro.** Marka animasyonu, sinematik geri sayım, abone ol kapanışı — hepsi ffmpeg ile üretilir, hazır dosya gerekmez.
 - **33 geçiş tipi, 5 hareket efekti, 6 renk tonu.** Panelden seçilir.
-- **DJ mix aracı.** Şarkıların BPM ve tonunu analiz edip armonik sırayla, tempo eşleştirerek miksler (`mix-pro.js`).
+- **Türkçe seslendirme.** `konu.json`'a `"ses": "tr-TR-AhmetNeural"` yazınca hem seslendirme hem altyazı Türkçe olur. Konuşma hızı otomatik ayarlanır (Türkçe 113, İngilizce 151 kelime/dk).
+- **GPU hızlandırma.** Açılışta NVIDIA/AMD donanım kodlayıcısını dener; varsa kullanır, yoksa sessizce CPU'ya döner. Ayar gerekmez.
+- **Bilgisayarı kilitlemez.** Render düşük öncelikte çalışır; tarayıcı, mesajlaşma uygulaması normal açılır.
 
 ## Gereksinimler
 

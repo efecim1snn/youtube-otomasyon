@@ -6,10 +6,23 @@ const path = require("path");
 const { MsEdgeTTS, OUTPUT_FORMAT } = require("msedge-tts");
 
 const JOB = process.argv[2] || "001-time-travel";
-const VOICE = process.argv[3] || "en-US-ChristopherNeural";
-const RATE = process.argv[4] || "+7%";   // Osman'in istegi: -10%'dan %19 daha akici
-
 const BASE = path.join(__dirname, "uretim", JOB);
+
+// Ses ve hiz konu.json'dan okunur; komut satiri onu ezer.
+// Boylece zincir (panel) Turkce videoda Turkce sesi kendiliginden kullanir.
+//   "ses": "tr-TR-AhmetNeural"   (Turkce erkek)
+//   "ses": "tr-TR-EmelNeural"    (Turkce kadin)
+//   "sesHizi": "+7%"
+let K_SES = null, K_HIZ = null;
+try {
+  const k = JSON.parse(fs.readFileSync(path.join(BASE, "konu.json"), "utf8"));
+  if (k.ses) K_SES = k.ses;
+  if (k.sesHizi) K_HIZ = k.sesHizi;
+} catch (e) {}
+
+const VOICE = process.argv[3] || K_SES || "en-US-ChristopherNeural";
+const RATE = process.argv[4] || K_HIZ || "+7%";   // Osman'in istegi: -10%'dan %19 daha akici
+
 const VOICE_DIR = path.join(BASE, "Voice");
 const PARTS = path.join(VOICE_DIR, "parts");
 const TXT = path.join(VOICE_DIR, "SESLENDIRME-TAM-METIN.txt");

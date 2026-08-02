@@ -266,7 +266,9 @@ const server = http.createServer(async (req, res) => {
       konuKarti: dikey ? 0 : 3,
       // Reels'te abone-ol kapanisi yok — Instagram'da anlamsiz
       outro: reels ? 0 : short ? 3 : 12,
-      muzikSeviyesi: 0.25,
+      // 0.40 olculen deger: muzik orta bandi sesin 6.5 dB altinda kaliyor.
+      // 0.25'te muzik duyulmuyordu (bkz. video-yap.js muzik bolumu).
+      muzikSeviyesi: 0.40,
       // Sureyi kullanici belirler. Varsayilanlar:
       //   Shorts 40 sn  — YouTube 45 sn siniri
       //   Reels 180 sn  — Instagram 3 dk ustunu takipcisi olmayanlara onermiyor

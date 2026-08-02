@@ -365,7 +365,21 @@ async function nasa(q) {
   try { konu = JSON.parse(fs.readFileSync(path.join(BASE, "konu.json"), "utf8")); } catch (e) {}
   const kisa = konu.aspect === "9:16" || konu.format === "short";
 
-  const paragraflar = senaryo.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 25);
+  // Paragraf = sahne kurali kisa paragraflarda cok fazla sahne uretiyor
+  // (230 paragraf -> 690 gorsel). Kisa paragraflari birlestirip her sahnenin
+  // en az ~10 saniyelik anlatim tasimasini sagliyoruz.
+  const hamParagraflar = senaryo.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 25);
+  const SAHNE_MIN_KELIME = 22;          // ~10 sn (Turkce 113, Ingilizce 151 kel/dk ortasi)
+  const paragraflar = [];
+  for (const p of hamParagraflar) {
+    const son = paragraflar[paragraflar.length - 1];
+    if (son && son.split(/\s+/).length < SAHNE_MIN_KELIME)
+      paragraflar[paragraflar.length - 1] = son + " " + p;
+    else
+      paragraflar.push(p);
+  }
+  if (hamParagraflar.length !== paragraflar.length)
+    console.log("sahne     : " + hamParagraflar.length + " paragraf -> " + paragraflar.length + " sahne (kisalar birlestirildi)");
   const toplamKelime = kelimeler(senaryo).length;        // SUZULMUS (tf-idf icin)
   const hamKelime = senaryo.split(/\s+/).filter(Boolean).length;   // HAM (sure icin)
   const genelSayim = {};
@@ -373,7 +387,10 @@ async function nasa(q) {
 
   // Sure HAM kelime sayisindan hesaplanmali. Suzulmus sayiyi kullanmak
   // sureyi ~2.5 kat eksik gosteriyordu -> cok az gorsel iniyordu.
-  const sure = hamKelime / 151 * 60;
+  // OLCULEN konusma hizi: Ingilizce 151 kel/dk, Turkce 113 (kelimeler uzun).
+  // Dil, konu.json'daki ses kodundan anlasiliyor (tr-TR-... = Turkce).
+  const KEL_DK = /^tr[-_]/i.test(String(konu.ses || "")) ? 113 : 151;
+  const sure = hamKelime / KEL_DK * 60;
   const toplamGorsel = Math.max(6, Math.min(160, Math.round(sure / 8)));
   const sahneBasina = Math.max(3, Math.min(14, Math.ceil(toplamGorsel / paragraflar.length)));
 

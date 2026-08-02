@@ -43,3 +43,19 @@ ikinci-gecis.sh
 logo-uret.sh
 muzik-duzelt.sh
 yeni-render.sh
+
+# --- Repo kapsami: SADECE YouTube + Instagram video uretimi ---
+# Asagidakiler bu makinede duruyor ama depoya girmiyor.
+# DJ mix araclari (ayri bir is):
+mix-pro.js
+mix-video.js
+mix-yap.js
+muzik-analiz.js
+ton-analiz.js
+# X thread gorsel ureteci:
+thread-gorsel.js
+# Eski panel (panel.js + panel-public tarafindan degistirildi):
+server.js
+public/
+templates/
+BASLAT.bat

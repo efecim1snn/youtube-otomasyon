@@ -4,12 +4,53 @@
 // Kullanim: node video-yap.js <is-klasoru>
 "use strict";
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
-const { execFileSync } = require("child_process");
+const { execFileSync, execFile } = require("child_process");
 
 const JOB = process.argv[2] || "001-time-travel";
 const FF = require("./ff-yol").ffmpeg;
 const FP = require("./ff-yol").ffprobe;
+
+// ---------- ONCELIK: RENDER ARKA PLANDA KALSIN ----------
+// ffmpeg varsayilan olarak Normal oncelikte calisir, yani tarayici ve diger
+// uygulamalarla ayni sirada CPU ister. Render suresince bilgisayar kilitleniyor
+// gibi hissettiriyor. Bu surecin onceligini dusuruyoruz; spawn edilen ffmpeg
+// cocuklari da bunu miras aliyor. Render biraz yavaslar, makine kullanilabilir kalir.
+// Kapatmak icin:  RENDER_ONCELIK=normal node video-yap.js <is>
+if (process.env.RENDER_ONCELIK !== "normal") {
+  try {
+    os.setPriority(0, os.constants.priority.PRIORITY_BELOW_NORMAL);
+    console.log("ONCELIK: dusuk (bilgisayar kullanilabilir kalsin diye)");
+  } catch (e) { /* bazi sistemlerde izin yok — sorun degil */ }
+}
+
+// ---------- KODLAYICI SECIMI ----------
+// GPU kodlama (NVENC) CPU'dan ~5 kat hizli. Ama surucu yeterince yeni
+// degilse ffmpeg hata verir. O yuzden ONCE DENIYORUZ, calisirsa kullaniyoruz.
+// Boylece depoyu indiren herkeste dogru calisir: GPU'su olan hizli render
+// alir, olmayan yine calisir. Kimse ayar yapmak zorunda kalmaz.
+function kodekSec() {
+  if (process.env.VIDEO_KODEK === "cpu") return null;
+  const adaylar = [
+    { ad: "NVIDIA NVENC", argv: ["-c:v","h264_nvenc","-preset","p4","-cq","20"] },
+    { ad: "AMD AMF",      argv: ["-c:v","h264_amf","-quality","balanced","-rc","cqp","-qp_i","20","-qp_p","22"] },
+  ];
+  for (const a of adaylar) {
+    try {
+      execFileSync(FF, ["-y","-hide_banner","-loglevel","error",
+        "-f","lavfi","-i","testsrc2=s=640x360:r=30:d=1", ...a.argv, "-an",
+        "-f","null", process.platform === "win32" ? "NUL" : "/dev/null"],
+        { stdio: "ignore", timeout: 25000 });
+      return a;
+    } catch (e) { /* bu kodlayici yok ya da surucu eski — sonrakine bak */ }
+  }
+  return null;
+}
+const GPU = kodekSec();
+const VIDEO_KODEK = GPU ? GPU.argv : ["-c:v","libx264","-preset","veryfast","-crf","18"];
+console.log(GPU ? `KODLAYICI: ${GPU.ad} (GPU) — hizli mod`
+                : "KODLAYICI: libx264 (CPU). GPU icin surucuyu guncelle.");
 
 const BASE = path.join(__dirname, "uretim", JOB);
 const VOICE_DIR = path.join(BASE, "Voice");
@@ -20,7 +61,9 @@ const TMP = path.join(BASE, "_tmp");
 
 // konu.json varsa en-boy oranini oradan al (16:9 varsayilan, 9:16 = Shorts)
 // MUSIC_VOL 0.11 cok kisikti (duyulmuyordu) -> 0.30
-let ASPECT = "16:9", MUSIC_VOL = 0.25, KONU_BASLIK = "", KANAL = "SINGULARITY HORIZON";
+// MUSIC_VOL 0.40: olculen deger. Muzik orta bandi -35.5 dB, seslendirme
+// orta bandi -29 dB. Yani sesin 6.5 dB altinda — duyulur ama bogmaz.
+let ASPECT = "16:9", MUSIC_VOL = 0.40, KONU_BASLIK = "", KANAL = "SINGULARITY HORIZON";
 let INTRO_D = null, TOPIC_D = null, OUTRO_D = null, SUNUCU = false, CD_D = null;
 let GECIS = "fade", CF_OZEL = null, EFEKT = "zoom", RENK = "sinematik";
 
@@ -191,12 +234,22 @@ function wrap(text, max) {
   const Lf = Math.round(L*FPS);
   console.log(`GORSEL: ${ozgun} ozgun -> ${N} kare, her biri ${L.toFixed(2)} sn (gecis ${CF} sn)`);
 
-  // ---------- 4) KLIPLER (tek tek, dusuk bellek) ----------
-  console.log("1/3 Klipler olusturuluyor...");
+  // ---------- 4) KLIPLER (paralel) ----------
+  // OLCULEN: render toplam surenin %83'u. Klipler tek tek uretilirken
+  // 16 cekirdegin cogu bosta duruyordu. Paralel uretim bu asamayi ~3 kat
+  // hizlandiriyor. Bellek guvenligi bozulmuyor: her ffmpeg tek gorsel isliyor.
+  // Paralellik hem cekirdek hem BOS BELLEK ile sinirli. zoompan 2560x1440
+  // kare tamponluyor; bellek darken 4 paralel "Error while opening encoder"
+  // veriyor. Is basina ~1.2 GB pay birakiyoruz.
+  const bosGB = os.freemem() / 1073741824;
+  const PARALEL = Math.max(1, Math.min(4, os.cpus().length - 2, Math.floor(bosGB / 1.2)));
+  console.log(`1/3 Klipler olusturuluyor... (${PARALEL} paralel, ${bosGB.toFixed(1)} GB bos)`);
   const clips = [];
-  for (let i = 0; i < N; i++) {
+
+  // her klip icin ffmpeg argumanlarini hazirla
+  function klipArgv(i) {
     const out = path.join(TMP, "clip" + String(i).padStart(3,"0") + ".mp4");
-    if (!fs.existsSync(out)) {
+    if (fs.existsSync(out)) return { out, argv: null };
       const zin = i % 2 === 0;
       // hareket efekti — konu.json "efekt" alanindan
       let z, xIf;
@@ -205,18 +258,52 @@ function wrap(text, max) {
       else if (EFEKT === "hizli")   { z = zin ? `min(1+0.0009*on,1.30)`  : `if(lte(on,1),1.30,max(1.30-0.0009*on,1.0))`; }
       else if (EFEKT === "kaydir")  { z = "1.14"; xIf = zin ? `(iw-iw/zoom)*on/${Lf}` : `(iw-iw/zoom)*(1-on/${Lf})`; }
       else                          { z = zin ? `min(1+0.00045*on,1.16)` : `if(lte(on,1),1.16,max(1.16-0.00045*on,1.0))`; }
-      const xIfade = xIf || `iw/2-(iw/zoom/2)`;
-      const renk = RENKLER[RENK] || RENKLER.sinematik;
-      // TEK kare besle (-loop YOK): zoompan d=Lf ile tam Lf kare uretir
-      run(["-y","-i",imgs[i],
-        "-vf",`scale=${SW}:${SH2}:force_original_aspect_ratio=increase,crop=${SW}:${SH2},`+
-              `${renk},`+
-              `zoompan=z='${z}':d=${Lf}:x='${xIfade}':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=${FPS},setsar=1,format=yuv420p`,
-        "-frames:v",String(Lf),
-        "-c:v","libx264","-preset","veryfast","-crf","18","-an",out]);
-    }
-    clips.push(out);
-    process.stdout.write(`\r  klip ${i+1}/${N}   `);
+    const xIfade = xIf || `iw/2-(iw/zoom/2)`;
+    const renk = RENKLER[RENK] || RENKLER.sinematik;
+    // TEK kare besle (-loop YOK): zoompan d=Lf ile tam Lf kare uretir
+    return { out, argv: ["-y","-i",imgs[i],
+      "-vf",`scale=${SW}:${SH2}:force_original_aspect_ratio=increase,crop=${SW}:${SH2},`+
+            `${renk},`+
+            `zoompan=z='${z}':d=${Lf}:x='${xIfade}':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=${FPS},setsar=1,format=yuv420p`,
+      "-frames:v",String(Lf),
+      // Paralel calisirken her ffmpeg kendi basina cekirdek sayisi kadar
+      // is parcacigi aciyor; 4 ornek birden sistemi tuketip
+      // "Error while opening encoder" veriyordu. Basina dusen payi veriyoruz.
+      "-threads", String(Math.max(2, Math.floor(os.cpus().length / PARALEL))),
+      ...VIDEO_KODEK, "-an", out] };
+  }
+
+  // paralel calistir: PARALEL kadar ffmpeg ayni anda
+  const isler = [];
+  for (let i = 0; i < N; i++) { const k = klipArgv(i); clips.push(k.out); if (k.argv) isler.push(k.argv); }
+  let bitenKlip = N - isler.length;
+  process.stdout.write(`\r  klip ${bitenKlip}/${N}   `);
+
+  // Paralel calistir. Bir klip patlarsa (genelde bellek) hemen pes etmiyoruz —
+  // sonunda tek tek tekrar deniyoruz. Boylece dar bellekli makinede de biter.
+  const basarisiz = [];
+  await new Promise(coz => {
+    if (!isler.length) return coz();
+    let sonraki = 0, calisan = 0;
+    const basla = () => {
+      while (calisan < PARALEL && sonraki < isler.length) {
+        const argv = isler[sonraki++];
+        calisan++;
+        execFile(FF, argv, { maxBuffer: 1 << 24 }, err => {
+          calisan--;
+          if (err) basarisiz.push(argv);
+          process.stdout.write(`\r  klip ${++bitenKlip}/${N}   `);
+          if (sonraki >= isler.length && calisan === 0) return coz();
+          basla();
+        });
+      }
+    };
+    basla();
+  });
+
+  if (basarisiz.length) {
+    console.log(`\n  ${basarisiz.length} klip paralelde olmadi — tek tek tekrar deneniyor...`);
+    for (const argv of basarisiz) run(argv);   // seri: bellek rahat, hata verirse durur
   }
   console.log("");
 
@@ -229,7 +316,7 @@ function wrap(text, max) {
     if (!fs.existsSync(out)) {
       const { args, fcFile } = xfadeMerge(part, out);
       run([...args,"-filter_complex_script",fcFile,"-map","[vm]",
-           "-c:v","libx264","-preset","veryfast","-crf","18","-an",out], TMP);
+           ...VIDEO_KODEK,"-an",out], TMP);
     }
     groups.push(out);
     process.stdout.write(`\r  grup ${g+1}   `);
@@ -249,12 +336,13 @@ function wrap(text, max) {
     `drawtext=fontfile='${BD}':text='${sp("HORIZON")}':fontcolor=0x6FD8FF:fontsize=${TS(120)}:x=(w-text_w)/2:y=${Math.round(H*0.62)},`+
     `drawtext=fontfile='${RG}':text='AI  ·  SPACETIME  ·  THE FUTURE':fontcolor=0xAAB8C4:fontsize=${TS(42)}:x=(w-text_w)/2:y=${Math.round(H*0.72)}`,
     "-frames:v","1",introPng]);
-  const introMp4 = path.join(TMP, "aa-intro.mp4");
-  run(["-y","-i",introPng,"-vf",
+  // INTRO_D 0 ise klip uretilmez: -frames:v 0 ffmpeg'i cokertiyordu.
+  const introMp4 = INTRO_D > 0 ? path.join(TMP, "aa-intro.mp4") : null;
+  if (introMp4) run(["-y","-i",introPng,"-vf",
     `scale=${Math.round(W*1.2/2)*2}:${Math.round(H*1.2/2)*2},zoompan=z='min(1+0.00035*on,1.10)':d=${Math.round(INTRO_D*FPS)}:`+
     `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=${FPS},setsar=1,`+
     `fade=t=in:st=0:d=1,fade=t=out:st=${(INTRO_D-1).toFixed(2)}:d=1,format=yuv420p`,
-    "-frames:v",String(Math.round(INTRO_D*FPS)),"-c:v","libx264","-preset","veryfast","-crf","18","-an",introMp4]);
+    "-frames:v",String(Math.round(INTRO_D*FPS)),...VIDEO_KODEK,"-an",introMp4]);
 
   // --- KONU KARTI: bu video ne anlatiyor ---
   const cards = [];
@@ -275,7 +363,7 @@ function wrap(text, max) {
       `scale=${Math.round(W*1.15/2)*2}:${Math.round(H*1.15/2)*2},zoompan=z='min(1+0.0006*on,1.08)':d=${Math.round(TOPIC_D*FPS)}:`+
       `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=${FPS},setsar=1,`+
       `fade=t=in:st=0:d=0.5,fade=t=out:st=${(TOPIC_D-0.6).toFixed(2)}:d=0.6,format=yuv420p`,
-      "-frames:v",String(Math.round(TOPIC_D*FPS)),"-c:v","libx264","-preset","veryfast","-crf","18","-an",topicMp4]);
+      "-frames:v",String(Math.round(TOPIC_D*FPS)),...VIDEO_KODEK,"-an",topicMp4]);
     cards.push(topicMp4);
   }
 
@@ -289,12 +377,12 @@ function wrap(text, max) {
     `drawtext=fontfile='${RG}':text='New documentaries every week':fontcolor=0xAAB8C4:fontsize=${TS(46)}:x=(w-text_w)/2:y=${Math.round(H*0.40)+TS(370)},`+
     `drawtext=fontfile='${BD}':text='${sp(KANAL)}':fontcolor=white:fontsize=${TS(44)}:x=(w-text_w)/2:y=${Math.round(H*0.83)}`,
     "-frames:v","1",outroPng]);
-  const outroMp4 = path.join(TMP, "zz-outro.mp4");
-  run(["-y","-i",outroPng,"-vf",
+  const outroMp4 = OUTRO_D > 0 ? path.join(TMP, "zz-outro.mp4") : null;
+  if (outroMp4) run(["-y","-i",outroPng,"-vf",
     `scale=${Math.round(W*1.15/2)*2}:${Math.round(H*1.15/2)*2},zoompan=z='max(1.08-0.0003*on,1.0)':d=${Math.round(OUTRO_D*FPS)}:`+
     `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=${FPS},setsar=1,`+
     `fade=t=in:st=0:d=0.8,fade=t=out:st=${(OUTRO_D-1.2).toFixed(2)}:d=1.2,format=yuv420p`,
-    "-frames:v",String(Math.round(OUTRO_D*FPS)),"-c:v","libx264","-preset","veryfast","-crf","18","-an",outroMp4]);
+    "-frames:v",String(Math.round(OUTRO_D*FPS)),...VIDEO_KODEK,"-an",outroMp4]);
 
   // --- FILM LIDERI GERI SAYIMI (5-4-3-2-1, sesli "dit") ---
   let cdMp4 = null, cdWav = null;
@@ -309,9 +397,38 @@ function wrap(text, max) {
     console.log(`GERI SAYIM: ${CD_D} sn film lideri eklendi`);
   }
 
-  groups.unshift(...(cdMp4 ? [cdMp4] : []), introMp4, ...cards);
-  groups.push(outroMp4);
+  groups.unshift(...(cdMp4 ? [cdMp4] : []), ...(introMp4 ? [introMp4] : []), ...cards);
+  if (outroMp4) groups.push(outroMp4);
   console.log(`  intro ${INTRO_D}sn + konu ${TOPIC_D}sn + outro ${OUTRO_D}sn eklendi`);
+
+  // ---------- 5d) COK GRUP VARSA ARA KADEME ----------
+  // OLCULEN: 30 dakikalik videoda 42 grup olustu ve final asamasi 46 dosyayi
+  // tek filtre grafiginde birlestirmeye calisip bellek tuketti:
+  //   [h264] get_buffer() failed  ->  cikti yarim kaldi
+  // Cozum: 10'dan fazla parca kalirsa once 8'erli ust gruplara indiriyoruz.
+  // Toplam birlestirme sayisi degismiyor (parca-1), ayni anda acilan dosya azaliyor.
+  const FINAL_MAX = 10;
+  let kademe = 0;
+  while (groups.length > FINAL_MAX) {
+    kademe++;
+    console.log(`  ara kademe ${kademe}: ${groups.length} parca -> ${Math.ceil(groups.length / GROUP)}`);
+    const ust = [];
+    for (let g = 0; g * GROUP < groups.length; g++) {
+      const part = groups.slice(g * GROUP, (g + 1) * GROUP);
+      if (part.length === 1) { ust.push(part[0]); continue; }
+      const out = path.join(TMP, `ust${kademe}_${String(g).padStart(2, "0")}.mp4`);
+      if (!fs.existsSync(out)) {
+        const { args, fcFile } = xfadeMerge(part, out);
+        run([...args, "-filter_complex_script", fcFile, "-map", "[vm]",
+             ...VIDEO_KODEK, "-an", out], TMP);
+      }
+      ust.push(out);
+      process.stdout.write(`\r    ust grup ${g + 1}   `);
+    }
+    console.log("");
+    groups.length = 0;
+    groups.push(...ust);
+  }
 
   // ---------- 5c) SESI KAYDIR (intro kadar geciktir) ----------
   const voicePadded = path.join(TMP, "voice-padded.mp3");
@@ -354,29 +471,62 @@ function wrap(text, max) {
               `PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=${SUB_MARGIN}'[vsub]`;
 
   // ---------- AMBIENT MUZIK (sentetik, telifsiz, bedava) ----------
+  //
+  // OLCULEN SORUN: eski surum 55/82/110 Hz sinus dronlarindan olusuyordu.
+  // Telefon ve laptop hoparlorleri bu frekanslari fiziksel olarak uretemez.
+  // Olcum: sub bant -17 dB, duyulabilir orta bant -43.8 dB. Yani muzigin
+  // %99'u duyulamayan yerdeydi. Seviyeyi yukseltmek cozmuyordu.
+  //
+  // YENI: Am-F-C-G akor ilerlemesi, enerji 175-800 Hz araliginda.
+  // Olcum: orta bant -27.6 dB (+16 dB). Seslendirme orta bandi -29 dB,
+  // yani 0.40 carpaniyla sesin 6.5 dB altinda — net duyulur, bogmaz.
   const musicFile = path.join(TMP, "muzik.mp3");
-  const MD = (FULL + 2).toFixed(2);
   const fo = Math.max(0, FULL - 5).toFixed(2);
-  // GERILIM YATAGI: alt dron + yavas nabiz + soguk parilti
-  run(["-y",
-    "-f","lavfi","-i",`sine=frequency=55:duration=${MD}`,      // sub dron
-    "-f","lavfi","-i",`sine=frequency=82.41:duration=${MD}`,   // besli
-    "-f","lavfi","-i",`sine=frequency=110:duration=${MD}`,     // oktav
-    "-f","lavfi","-i",`sine=frequency=329.63:duration=${MD}`,  // parilti
-    "-f","lavfi","-i",`anoisesrc=d=${MD}:c=brown:a=0.05`,      // doku
-    "-filter_complex",
-      `[0]volume=0.55,tremolo=f=0.8:d=0.30[a];`+      // yavas nabiz = gerilim
-      `[1]volume=0.32,tremolo=f=0.13:d=0.45[b];`+
-      `[2]volume=0.18,tremolo=f=0.11:d=0.5[c];`+
-      `[3]volume=0.07,tremolo=f=0.17:d=0.6[d];`+
-      `[4]lowpass=f=300,volume=0.40[e];`+
-      // normalize=0 SART: yoksa amix girdi sayisina boluyor ve muzik yok oluyor.
-      // loudnorm ile sabit, duyulur bir yatak seviyesi.
-      `[a][b][c][d][e]amix=inputs=5:duration=longest:normalize=0,lowpass=f=1400,`+
-      `loudnorm=I=-20:TP=-3:LRA=7,`+
-      `afade=t=in:st=${CD_D.toFixed(2)}:d=3,afade=t=out:st=${fo}:d=5`,
+
+  const AKORLAR = [
+    { sub: 110.00, kok: 220.00, uc: 261.63, bes: 329.63, par: 659.25 }, // Am
+    { sub:  87.31, kok: 174.61, uc: 220.00, bes: 261.63, par: 523.25 }, // F
+    { sub: 130.81, kok: 261.63, uc: 329.63, bes: 392.00, par: 783.99 }, // C
+    { sub:  98.00, kok: 196.00, uc: 246.94, bes: 293.66, par: 587.33 }, // G
+  ];
+  const AKOR_SN = 8;
+  const akorDosyalari = AKORLAR.map((a, i) => {
+    const o = path.join(TMP, "akor" + i + ".wav");
+    run(["-y",
+      "-f","lavfi","-i",`sine=frequency=${a.kok}:duration=${AKOR_SN}`,
+      "-f","lavfi","-i",`sine=frequency=${a.uc}:duration=${AKOR_SN}`,
+      "-f","lavfi","-i",`sine=frequency=${a.bes}:duration=${AKOR_SN}`,
+      "-f","lavfi","-i",`sine=frequency=${a.par}:duration=${AKOR_SN}`,
+      "-f","lavfi","-i",`sine=frequency=${a.sub}:duration=${AKOR_SN}`,
+      "-f","lavfi","-i",`anoisesrc=d=${AKOR_SN}:c=pink:a=0.06`,
+      "-filter_complex",
+        `[0]volume=0.50,tremolo=f=0.15:d=0.25[a];`+
+        `[1]volume=0.40,tremolo=f=0.12:d=0.28[b];`+
+        `[2]volume=0.38,tremolo=f=0.13:d=0.26[c];`+
+        `[3]volume=0.20,tremolo=f=0.10:d=0.35[d];`+
+        `[4]volume=0.28[e];`+
+        `[5]bandpass=f=2400:width_type=o:w=2,volume=0.50[f];`+
+        // normalize=0 SART: yoksa amix girdi sayisina boluyor.
+        `[a][b][c][d][e][f]amix=inputs=6:duration=longest:normalize=0,`+
+        `afade=t=in:d=1.5,afade=t=out:st=${AKOR_SN - 1.5}:d=1.5`,
+      "-c:a","pcm_s16le", o]);
+    return o;
+  });
+
+  // akorlari sirala, videoyu kaplayacak kadar tekrarla
+  const akorListe = path.join(TMP, "akorlar.txt");
+  const tur = Math.ceil((FULL + 4) / (AKOR_SN * AKORLAR.length));
+  const satirlar = [];
+  for (let t = 0; t < tur; t++)
+    for (const d of akorDosyalari) satirlar.push("file '" + d.split(path.sep).join("/") + "'");
+  fs.writeFileSync(akorListe, satirlar.join("\n"));
+
+  run(["-y","-f","concat","-safe","0","-i", akorListe,
+    "-t", (FULL + 2).toFixed(2),
+    "-af", `loudnorm=I=-18:TP=-2:LRA=6,`+
+           `afade=t=in:st=${CD_D.toFixed(2)}:d=3,afade=t=out:st=${fo}:d=5`,
     "-c:a","libmp3lame","-q:a","3", musicFile]);
-  console.log(`MUZIK: gerilim yatagi uretildi (seviye ${MUSIC_VOL})`);
+  console.log(`MUZIK: Am-F-C-G yatagi uretildi (seviye ${MUSIC_VOL}, ${tur} tur)`);
   const inputs = [];
   groups.forEach(f => inputs.push("-i", f));
   const ds = groups.map(dur);
@@ -430,7 +580,7 @@ function wrap(text, max) {
 
   run(["-y",...inputs,"-i",voicePadded,"-i",musicFile,...(cdWav ? ["-i", cdWav] : []),"-filter_complex_script",fcFile,
        "-map","[vout]","-map","[aout]",
-       "-c:v","libx264","-preset","medium","-crf","20","-pix_fmt","yuv420p",
+       ...(GPU ? GPU.argv : ["-c:v","libx264","-preset","medium","-crf","20"]),"-pix_fmt","yuv420p",
        "-c:a","aac","-b:a","192k","-r",String(FPS),"-shortest",outFile], BASE);
 
   console.log("\n=== BITTI ===");
