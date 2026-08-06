@@ -14,6 +14,7 @@
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
+const uretici = require("./gorsel-uret.js");   // "uret:" ile isaretli sahneler icin
 
 const KOK = __dirname;
 const URETIM = path.join(KOK, "uretim");
@@ -427,6 +428,31 @@ async function nasa(q) {
     const sahneAd = no + "-" + adaylar[0].toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 24);
     const klasor = path.join(VIS, sahneAd);
     fs.mkdirSync(klasor, { recursive: true });
+
+    // --- AI URETIMI ---
+    // Sahne kelimesi "uret:" ile basliyorsa stok arama yapilmaz, gorsel
+    // uretilir. Soyut kavramlarin ("kuantum dolanikligi", "sinir agi")
+    // stok fotografi yoktur. Gercek seyler stok fotograftan gelmeli.
+    if (/^uret:/i.test(adaylar[0])) {
+      const istem = uretici.istemKur(adaylar[0], konu.uretStil);
+      const adet = Number(konu.uretAdet || sahneBasina || 2);
+      let n = 0;
+      for (let s = 0; s < adet; s++) {
+        const hedef = path.join(klasor, `${no}-${s + 1}.jpg`);
+        if (fs.existsSync(hedef) && fs.statSync(hedef).size > 20000) { n++; continue; }
+        try {
+          const { govde } = await uretici.uretBir(istem, kisa ? 768 : 1280, kisa ? 1344 : 720,
+                                                  i * 100 + s + 1, true);
+          fs.writeFileSync(hedef, govde);
+          n++; toplamIndirilen++;
+          kunye.push({ sahne: sahneAd, dosya: path.basename(hedef), kaynak: "AI uretimi", istem });
+        } catch (e) { /* uretilemezse sahne bos kalir, asagida uyari veriyoruz */ }
+        await bekle(400);
+      }
+      console.log(`  ${sahneAd.padEnd(28)} [URETILDI] ${n} gorsel`);
+      if (!n) console.log(`    !! uretilemedi — konu.json'daki "uret:" isaretini kaldirip stok aramaya birak`);
+      continue;
+    }
 
     // aday ifadeleri sirayla dene, yeterli gorsel bulana kadar
     let havuz = [], kullanilan = null;

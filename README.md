@@ -120,6 +120,45 @@ sınırlarını gösteren kontrol kopyasıdır.
 
 **Render.** Bellek taşmasını önlemek için üç aşamalı: klipler → sekizli gruplar → final. Ken Burns zoom, xfade geçişler, gömülü altyazı, sentezlenmiş fon müziği.
 
+## AI görsel üretimi
+
+Stok fotoğrafın bulamadığı soyut sahneler için. `konu.json`'da bir sahne
+kelimesini `uret:` ile başlatman yeterli — zincir onu otomatik üretir, kalan
+sahneler stok fotoğraftan gelmeye devam eder.
+
+```json
+"uretStil": "cinematic, dark background, volumetric light, high detail",
+"uretAdet": 2,
+"sahneKelimeleri": [
+  ["polar bear arctic"],                                    // stok fotoğraf
+  ["uret: a lattice of glowing light suspended in darkness"] // AI üretimi
+]
+```
+
+Ayrı da çalışır:
+
+```bash
+node gorsel-uret.js <is-adi>            # "uret:" ile işaretli sahneler
+node gorsel-uret.js <is-adi> --hepsi    # tüm sahneler
+node gorsel-uret.js --istem "..." --cikti out.jpg
+```
+
+**Servisler** — sırayla denenir, ilk çalışan kullanılır:
+
+| servis | anahtar | not |
+|---|---|---|
+| **Pollinations** | **gerekmez** | varsayılan, ~1 sn |
+| Cloudflare Workers AI | `CF_ACCOUNT_ID` + `CF_API_TOKEN` | FLUX, ücretsiz kademe |
+| Together | `TOGETHER_KEY` | FLUX.1 schnell, ücretsiz kademe |
+| Hugging Face | `HF_TOKEN` | ücretsiz, yavaş olabilir |
+
+Hiç anahtar girmezsen de çalışır.
+
+**Ne zaman üretme:** gerçek bir şey anlatıyorsan — bir hayvan, bir bilim insanı,
+bir bina, bir olay — stok fotoğraf kullan. Üretilmiş görsel orada yalan söyler.
+Üretim soyut kavramlar için: "kuantum dolanıklığı", "sinir ağı", "hiçliğin
+içinden çıkan yapı".
+
 ## Viral Shorts analizi
 
 ```bash
