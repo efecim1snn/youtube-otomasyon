@@ -21,7 +21,7 @@ try {
 } catch (e) {}
 
 const VOICE = process.argv[3] || K_SES || "en-US-ChristopherNeural";
-const RATE = process.argv[4] || K_HIZ || "+7%";   // Osman'in istegi: -10%'dan %19 daha akici
+const RATE = process.argv[4] || K_HIZ || "+7%";   // -10%'dan %19 daha akici
 
 const VOICE_DIR = path.join(BASE, "Voice");
 const PARTS = path.join(VOICE_DIR, "parts");

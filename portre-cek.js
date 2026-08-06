@@ -10,7 +10,7 @@ const JOB = process.argv[2] || "003-long-ai-scientists";
 const BASE = path.join(__dirname, "uretim", JOB);
 const OUT = path.join(BASE, "Visuals");
 
-const UA = "SingularityHorizon/1.0 (educational video project; contact: local)";
+const UA = "video-otomasyon/1.0 (educational video project)";
 const bekle = ms => new Promise(r => setTimeout(r, ms));
 
 function get(url, raw) {

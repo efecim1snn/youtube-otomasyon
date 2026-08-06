@@ -1,7 +1,7 @@
 // gorsel-bul.js <is>
 // KONU BAGIMSIZ gorsel bulucu. Spor, yemek, reklam, uzay — fark etmez.
 // Arama kelimelerini SENARYODAN kendisi cikarir (senaryo Ingilizce oldugu icin
-// Osman Turkce yazsa bile arama dogru calisir).
+// Konu notu Turkce yazilsa bile arama dogru calisir).
 //
 // Kaynaklar (hicbiri anahtar istemez):
 //   1. Openverse  — 700M+ CC gorsel (Flickr, muzeler, Wikimedia...) — GENEL AMACLI

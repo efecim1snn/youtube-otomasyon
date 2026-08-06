@@ -208,7 +208,7 @@ function kazananKatman(V) {
 }
 
 // ---- DOVUS MUZIGI ----------------------------------------------------------
-// Osman'in tekrar eden sikayeti: muzik duyulmuyor. Sebep sub-basta kalmasi.
+// Fon muzigi kucuk hoparlorde duyulmuyordu. Sebep sub-basta kalmasi.
 // Vurus bilerek ORTA banda tasindi: trampet gurultusu + 165-330 Hz riff.
 function muzik(sure) {
   const v = 60 / BPM;

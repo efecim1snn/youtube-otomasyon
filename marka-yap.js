@@ -1,8 +1,8 @@
 // KANAL MARKA URETICI — profil resmi + banner (fotograf tabanli, sinematik)
-// Kullanim: node marka-yap.js "WILD MATCHUP" "REAL STATS. ONE WINNER."
+// Kullanim: node marka-yap.js "KANAL ADI" "SLOGAN" [cikis-klasoru]
 //
 // Ilk surum duz renk uzerine yaziydi ve ucuz duruyordu. Bu surum kanalin kendi
-// hayvan fotograflarini kullaniyor: bolunmus kompozisyon, sicak/soguk renk
+// gorsellerini kullaniyor: bolunmus kompozisyon, sicak/soguk renk
 // ayrimi, vinyet, altin degrade yazi, simsek ayrac.
 "use strict";
 const fs = require("fs");
@@ -10,8 +10,8 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 const { ffmpeg: FF } = require("./ff-yol.js");
 
-const AD = process.argv[2] || "WILD MATCHUP";
-const SLOGAN = process.argv[3] || "REAL STATS. ONE WINNER.";
+const AD = process.argv[2] || "CHANNEL NAME";
+const SLOGAN = process.argv[3] || "";
 // Cikis klasoru: 3. argumanla verilir, verilmezse repo icinde "marka/".
 const CIKIS = process.argv[4] || path.join(__dirname, "marka");
 const URETIM = path.join(__dirname, "uretim");
@@ -32,22 +32,43 @@ function run(argv, etiket) {
   }
 }
 
-// kanalin kendi gorselleri — marka ile videolar ayni yerden gorunsun
-const G = n => path.join(URETIM, n);
-const FOTO = {
-  kaplan:  G("102-kaplan-vs-aslan/Images/ust.jpg"),
-  aslan:   G("102-kaplan-vs-aslan/Images/alt.jpg"),
-  ayi:     G("103-boz-ayi-vs-goril/Images/ust.jpg"),
-  goril:   G("103-boz-ayi-vs-goril/Images/alt.jpg"),
-  kopek:   G("104-beyaz-kopekbaligi-vs-timsah/Images/ust.jpg"),
-  kobra:   G("101-kobra-vs-akrep/Images/ust.jpg"),
-  jaguar:  G("108-jaguar-vs-anakonda/Images/ust.jpg"),
-  kutup:   G("109-kutup-ayisi-vs-kaplan/Images/ust.jpg"),
-  timsah:  G("105-hipopotam-vs-nil-timsahi/Images/alt.jpg"),
-  harpi:   G("106-harpi-vs-kartal/Images/ust.jpg"),
-};
-for (const [k, v] of Object.entries(FOTO))
-  if (!fs.existsSync(v)) { console.error("gorsel yok: " + k + " -> " + v); process.exit(1); }
+// GORSELLER
+// Marka, kanalin kendi videolarindaki gorsellerden kurulur — boylece kanal
+// sayfasi ve videolar ayni yerden gorunur.
+//
+// Kaynak klasoru MARKA_GORSEL degiskeniyle verilir; verilmezse uretim/
+// altindaki tum islerin Images ve Visuals klasorleri taranir.
+//   MARKA_GORSEL=C:/gorseller node marka-yap.js "KANAL" "SLOGAN"
+//
+// En az 2 gorsel gerekir (profil resmi icin), banner 4 tanesini kullanir.
+function gorselleriTopla() {
+  const elle = process.env.MARKA_GORSEL;
+  const kokler = elle ? [elle] : (fs.existsSync(URETIM)
+    ? fs.readdirSync(URETIM).flatMap(is =>
+        ["Images", "Visuals"].map(a => path.join(URETIM, is, a)))
+    : []);
+  const bulunan = [];
+  const tara = (d, derinlik) => {
+    if (derinlik > 2 || !fs.existsSync(d)) return;
+    for (const ad of fs.readdirSync(d)) {
+      const t = path.join(d, ad);
+      let st; try { st = fs.statSync(t); } catch (e) { continue; }
+      if (st.isDirectory()) tara(t, derinlik + 1);
+      else if (/\.(jpe?g|png)$/i.test(ad) && st.size > 40000) bulunan.push(t);
+    }
+  };
+  for (const k of kokler) tara(k, 0);
+  return bulunan;
+}
+
+const HAVUZ = gorselleriTopla();
+if (HAVUZ.length < 2) {
+  console.error("En az 2 gorsel gerekiyor. Once bir video uret, ya da:");
+  console.error("  MARKA_GORSEL=<klasor> node marka-yap.js \"KANAL ADI\" \"SLOGAN\"");
+  process.exit(1);
+}
+// profil: ilk iki gorsel · banner: ilk dort (yeterince yoksa basa doner)
+const sec = i => HAVUZ[i % HAVUZ.length];
 
 // ucgen dalga toplami — videolardaki ayni simsek
 function zikzak(genlikOlcek, periyotOlcek) {
@@ -96,13 +117,13 @@ function profil() {
   const a1 = path.join(TMP, "pp-a.png"), a2 = path.join(TMP, "pp-b.png");
 
   run([
-    "-i", FOTO.kaplan, "-i", FOTO.aslan,
+    "-i", sec(0), "-i", sec(1),
     "-filter_complex", [
-      // ust: kaplan — sicak, kontrastli
+      // ust yari — sicak, kontrastli
       `[0:v]scale=${S}:${M}:force_original_aspect_ratio=increase,crop=${S}:${M},` +
         `eq=contrast=1.22:saturation=1.35:brightness=-0.03,` +
         `colorbalance=rs=.10:rm=.10:bs=-.06,unsharp=5:5:0.7[t]`,
-      // alt: aslan — altin/soguk govde, ayrim olsun
+      // alt yari — soguk govde, ust yaridan ayrilsin
       `[1:v]scale=${S}:${M}:force_original_aspect_ratio=increase,crop=${S}:${M},` +
         `eq=contrast=1.22:saturation=1.20:brightness=-0.06,` +
         `colorbalance=rs=-.06:bs=.12:bm=.06,unsharp=5:5:0.7[b]`,
@@ -139,13 +160,13 @@ function profil() {
 // ---------------------------------------------------------------------------
 // BANNER 2560x1440
 // Guvenli alan 1546x423 (telefonda SADECE o gorunuyor) — yazilar orada.
-// Kenarlardaki hayvanlar masaustunde gorunur, bu alanin dogru kullanimi.
+// Kenarlardaki gorseller masaustunde gorunur, bu alanin dogru kullanimi.
 // ---------------------------------------------------------------------------
 function banner() {
   const W = 2560, H = 1440, MY = H / 2;
-  // 6 dar sutun hayvanlari taninmaz hale getiriyordu (beyaz kurk, tuy, post).
-  // 4 x 640 = tam 2560 ve her hayvan seciliyor. Koyu/belirsiz fotograflar disarida.
-  const SIRA = [FOTO.kobra, FOTO.kaplan, FOTO.timsah, FOTO.goril];
+  // 6 dar sutun ozneleri taninmaz hale getiriyordu. 4 x 640 = tam 2560 ve
+  // her gorsel seciliyor.
+  const SIRA = [sec(0), sec(1), sec(2), sec(3)];
   const TW = Math.ceil(W / SIRA.length);          // 427
   const z = zikzak(1.9, 2.1);
   const a1 = path.join(TMP, "bn-a.png"), a2 = path.join(TMP, "bn-b.png");

@@ -28,7 +28,7 @@ tmp-test/
 
 # --- KISISEL IS BELGELERI: public depoya girmez ---
 # Kanal stratejisi, icerik fikirleri, yukleme metinleri, X thread'leri.
-# Bunlar Osman'in is materyali; arac degil.
+# Bunlar kullanicinin is materyali; arac degil.
 KANAL-ACILIS-KITI.md
 STRATEJI.md
 MIMARI-VE-KURULUM-PLANI.md
@@ -59,3 +59,4 @@ server.js
 public/
 templates/
 BASLAT.bat
+viral-analiz/

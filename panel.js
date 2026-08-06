@@ -73,6 +73,7 @@ function isDurumu(ad) {
   return {
     ad, baslik: (konu && konu.baslik_en) || ad,
     format: (konu && konu.format) === "reels" ? "reels"
+          : (konu && konu.format) === "tiktok" ? "tiktok"
           : (konu && konu.aspect) === "9:16" ? "short" : "long",
     konuVar: !!konu, senaryo, trAlt, kelime,
     dakika: kelime ? Math.round((kelime / 151 + 0.5) * 10) / 10 : 0,
@@ -246,12 +247,14 @@ const server = http.createServer(async (req, res) => {
     const dir = path.join(URETIM, ad);
     if (fs.existsSync(dir)) return json(res, 409, { hata: "bu isim zaten var" });
     fs.mkdirSync(path.join(dir, "Voice"), { recursive: true });
-    // long  = YouTube uzun video, 16:9, en az 15 dk
-    // short = YouTube Shorts,     9:16, en fazla 45 sn
-    // reels = Instagram Reels,    9:16, sure serbest (varsayilan 3 dk)
+    // long   = YouTube uzun video, 16:9, en az 15 dk
+    // short  = YouTube Shorts,     9:16, en fazla 45 sn
+    // reels  = Instagram Reels,    9:16, varsayilan 3 dk
+    // tiktok = TikTok,             9:16, varsayilan 60 sn
     const reels = b.format === "reels";
+    const tiktok = b.format === "tiktok";
     const short = b.format === "short";
-    const dikey = short || reels;
+    const dikey = short || reels || tiktok;
     const ay = ayarOku();
 
     // Sahne / arama kelimesi TANIMLANMAZ — gorsel-bul.js bunlari
@@ -259,22 +262,22 @@ const server = http.createServer(async (req, res) => {
     const konu = {
       baslik_en: b.baslik || ad,
       kanal: b.kanal || ay.kanal || "KANALIM",
-      format: reels ? "reels" : short ? "short" : "long",
+      format: reels ? "reels" : tiktok ? "tiktok" : short ? "short" : "long",
       aspect: dikey ? "9:16" : "16:9",
       geriSayim: dikey ? 0 : (b.geriSayim === false ? 0 : 5),
       intro: dikey ? 1.5 : 10,
       konuKarti: dikey ? 0 : 3,
       // Reels'te abone-ol kapanisi yok — Instagram'da anlamsiz
-      outro: reels ? 0 : short ? 3 : 12,
+      outro: (reels || tiktok) ? 0 : short ? 3 : 12,
       // 0.40 olculen deger: muzik orta bandi sesin 6.5 dB altinda kaliyor.
       // 0.25'te muzik duyulmuyordu (bkz. video-yap.js muzik bolumu).
       muzikSeviyesi: 0.40,
       // Sureyi kullanici belirler. Varsayilanlar:
       //   Shorts 40 sn  — YouTube 45 sn siniri
       //   Reels 180 sn  — Instagram 3 dk ustunu takipcisi olmayanlara onermiyor
-      //   Uzun  15 dk   — Osman'in standardi, altina dusmez
+      //   Uzun  15 dk   — varsayilan alt sinir, altina dusmez
       hedefSaniye: Math.round(60 * (Number(b.sureDk) > 0 ? Number(b.sureDk)
-                                  : reels ? 3 : short ? 0.67 : 15)),
+                                  : reels ? 3 : tiktok ? 1 : short ? 0.67 : 15)),
       _not: String(b.nis || "").trim() || undefined,
     };
 

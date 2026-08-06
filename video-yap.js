@@ -63,7 +63,7 @@ const TMP = path.join(BASE, "_tmp");
 // MUSIC_VOL 0.11 cok kisikti (duyulmuyordu) -> 0.30
 // MUSIC_VOL 0.40: olculen deger. Muzik orta bandi -35.5 dB, seslendirme
 // orta bandi -29 dB. Yani sesin 6.5 dB altinda — duyulur ama bogmaz.
-let ASPECT = "16:9", MUSIC_VOL = 0.40, KONU_BASLIK = "", KANAL = "SINGULARITY HORIZON";
+let ASPECT = "16:9", MUSIC_VOL = 0.40, KONU_BASLIK = "", KANAL = "", SLOGAN = "";
 let INTRO_D = null, TOPIC_D = null, OUTRO_D = null, SUNUCU = false, CD_D = null;
 let GECIS = "fade", CF_OZEL = null, EFEKT = "zoom", RENK = "sinematik";
 
@@ -84,6 +84,7 @@ if (fs.existsSync(KONU)) {
     if (typeof k.muzikSeviyesi === "number") MUSIC_VOL = k.muzikSeviyesi;
     if (k.baslik_en) KONU_BASLIK = k.baslik_en;
     if (k.kanal) KANAL = k.kanal;
+    if (k.slogan) SLOGAN = k.slogan;
     if (typeof k.intro === "number") INTRO_D = k.intro;
     if (typeof k.konuKarti === "number") TOPIC_D = k.konuKarti;
     if (typeof k.outro === "number") OUTRO_D = k.outro;
@@ -92,7 +93,7 @@ if (fs.existsSync(KONU)) {
     if (typeof k.gecisSure === "number") CF_OZEL = k.gecisSure;
     if (k.efekt) EFEKT = k.efekt;                 // hareket stili
     if (k.renk) RENK = k.renk;                    // renk tonu
-    // sunucu figuru KALDIRILDI (Osman: altyaziyi engelliyordu)
+    // sunucu figuru KALDIRILDI (altyaziyi engelliyordu)
   } catch (e) { console.log("konu.json okunamadi:", e.message); }
 }
 const DIKEY = ASPECT === "9:16";
@@ -114,6 +115,28 @@ const OFFSET = CD_D + INTRO_D + TOPIC_D;   // seslendirme bu kadar gec baslar
 const BD = "C\\:/Windows/Fonts/arialbd.ttf";
 const RG = "C\\:/Windows/Fonts/arial.ttf";
 const sp = s => s.split("").join(" ");     // harf arasi bosluk
+
+// Intro marka yazisi. Kanal adi ve slogan konu.json'dan gelir:
+//   "kanal": "MY CHANNEL",  "slogan": "WHAT THE CHANNEL IS ABOUT"
+// Kanal adi birden fazla kelimeyse son kelime alt satira gecer.
+// Kanal adi yoksa intro sadece marka animasyonu olur, yazi cizilmez.
+function markaYazisi(TS, H) {
+  if (!KANAL) return "null";
+  const p = KANAL.trim().split(/\s+/);
+  const ust = p.length > 1 ? p.slice(0, -1).join(" ") : p[0];
+  const alt = p.length > 1 ? p[p.length - 1] : "";
+  const parcalar = [
+    `drawtext=fontfile='${BD}':text='${sp(ust)}':fontcolor=white:fontsize=${TS(120)}` +
+      `:x=(w-text_w)/2:y=${Math.round(H * (alt ? 0.53 : 0.575))}`,
+  ];
+  if (alt) parcalar.push(
+    `drawtext=fontfile='${BD}':text='${sp(alt)}':fontcolor=0x6FD8FF:fontsize=${TS(120)}` +
+      `:x=(w-text_w)/2:y=${Math.round(H * 0.62)}`);
+  if (SLOGAN) parcalar.push(
+    `drawtext=fontfile='${RG}':text='${SLOGAN.replace(/'/g, "")}':fontcolor=0xAAB8C4:fontsize=${TS(42)}` +
+      `:x=(w-text_w)/2:y=${Math.round(H * 0.72)}`);
+  return parcalar.join(",");
+}
 
 // Hata durumunda execFileSync'in firlattigi nesne loga ham Buffer olarak
 // basiliyordu ve ffmpeg'in ne dedigi hic gorunmuyordu. stderr'i cozup yaziyoruz.
@@ -345,9 +368,7 @@ function wrap(text, max) {
   const introPng = path.join(TMP, "intro.png");
   run(["-y","-f","lavfi","-i",`color=c=0x04060B:s=${W}x${H}`,"-vf",
     `format=rgb24,${markaGeq(cx, cyI, scI)},`+
-    `drawtext=fontfile='${BD}':text='${sp("SINGULARITY")}':fontcolor=white:fontsize=${TS(120)}:x=(w-text_w)/2:y=${Math.round(H*0.53)},`+
-    `drawtext=fontfile='${BD}':text='${sp("HORIZON")}':fontcolor=0x6FD8FF:fontsize=${TS(120)}:x=(w-text_w)/2:y=${Math.round(H*0.62)},`+
-    `drawtext=fontfile='${RG}':text='AI  ·  SPACETIME  ·  THE FUTURE':fontcolor=0xAAB8C4:fontsize=${TS(42)}:x=(w-text_w)/2:y=${Math.round(H*0.72)}`,
+    markaYazisi(TS, H),
     "-frames:v","1",introPng]);
   // INTRO_D 0 ise klip uretilmez: -frames:v 0 ffmpeg'i cokertiyordu.
   const introMp4 = INTRO_D > 0 ? path.join(TMP, "aa-intro.mp4") : null;

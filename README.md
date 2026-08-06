@@ -20,7 +20,7 @@ bitmiş MP4 + altyazı
 ## Ne yapabilir
 
 - **Herhangi bir konu.** Spor, reklam, tarih, bilim, tanıtım — fark etmez. Görsel arama kelimelerini senaryodan kendisi çıkarır.
-- **Üç format:** YouTube uzun video (16:9, en az 15 dk) · YouTube Shorts (9:16, max 45 sn) · **Instagram Reels** (9:16, max 90 sn). Süre sınırları otomatik uygulanır; Reels'te abone-ol kapanışı çıkarılır.
+- **Dört format:** YouTube uzun video (16:9, en az 15 dk) · YouTube Shorts (9:16, max 45 sn) · **Instagram Reels** (9:16, varsayılan 3 dk) · **TikTok** (9:16, varsayılan 60 sn). Süre sınırları otomatik uygulanır; Reels ve TikTok'ta abone-ol kapanışı çıkarılır.
 - **İki dilli altyazı.** İngilizce seslendirme + Türkçe gömülü altyazı.
 - **Prosedürel intro/outro.** Marka animasyonu, sinematik geri sayım, abone ol kapanışı — hepsi ffmpeg ile üretilir, hazır dosya gerekmez.
 - **33 geçiş tipi, 5 hareket efekti, 6 renk tonu.** Panelden seçilir.
@@ -119,6 +119,25 @@ sınırlarını gösteren kontrol kopyasıdır.
 **Seslendirme.** `msedge-tts` ile Microsoft'un nöral sesleri kullanılır — ücretsiz, anahtar istemez. Altyazı zamanlaması, her paragrafın gerçek ses süresinden karakter sayısına göre dağıtılarak çıkarılır.
 
 **Render.** Bellek taşmasını önlemek için üç aşamalı: klipler → sekizli gruplar → final. Ken Burns zoom, xfade geçişler, gömülü altyazı, sentezlenmiş fon müziği.
+
+## Viral Shorts analizi
+
+```bash
+node viral-analiz.js                      # bu hafta, 10M+ izlenen Shorts
+node viral-analiz.js "animal comparison"  # konuya göre
+node viral-analiz.js "" tr 1000000        # Türkçe başlıklar, 1M+ eşik
+```
+
+O hafta patlayan Shorts'ları bulur ve **neden** patladıklarını çıkarır: ortanca
+süre, abone sayısının gerçekte ne kadar etkilediği, etkileşim oranı, ve aynı
+sesi/formatı kullanan kanal kümeleri. Rapor `viral-analiz/<tarih>.md` olarak yazılır.
+
+Son çalıştırmadan çıkan örnek bulgu: ilk 20'nin 7'si **aynı sesin** farklı
+kanallardaki versiyonuydu — 12 bin aboneli bir kanal 44 milyon izlenme aldı.
+Shorts'ta abone sayısı neredeyse önemsiz; trend penceresini yakalamak her şey.
+
+Amaç kalıbı görmek — hangi süre, hangi format, ilk iki saniyede ne oluyor — ve o
+kalıpla kendi videonu yapmak. Araç video indirmez.
 
 ## Lisans
 
