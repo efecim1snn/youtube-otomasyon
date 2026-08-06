@@ -55,8 +55,14 @@ ton-analiz.js
 # X thread gorsel ureteci:
 thread-gorsel.js
 # Eski panel (panel.js + panel-public tarafindan degistirildi):
-server.js
-public/
-templates/
-BASLAT.bat
-viral-analiz/
+# NOT: "/" ile koke sabitli — video-indirici/ altindaki ayni adli dosyalari kapsamaz.
+/server.js
+/public/
+/templates/
+/BASLAT.bat
+/viral-analiz/
+
+# --- Video Indirici modulu (video-indirici/) ---
+# kod depoya girer; indirilen videolar ve yerel ayarlar girmez
+video-indirici/indirilenler/
+video-indirici/ayarlar.json

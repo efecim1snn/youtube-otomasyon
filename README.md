@@ -176,7 +176,24 @@ kanallardaki versiyonuydu — 12 bin aboneli bir kanal 44 milyon izlenme aldı.
 Shorts'ta abone sayısı neredeyse önemsiz; trend penceresini yakalamak her şey.
 
 Amaç kalıbı görmek — hangi süre, hangi format, ilk iki saniyede ne oluyor — ve o
-kalıpla kendi videonu yapmak. Araç video indirmez.
+kalıpla kendi videonu yapmak. Araç video indirmez; indirmek için `video-indirici/` var.
+
+## Video İndirici
+
+Ayrı bir mini panel: link yapıştır → indir. Reklamlı indirme sitelerine son.
+
+```bash
+cd video-indirici
+BASLAT.bat        # → http://localhost:4190
+```
+
+- YouTube, TikTok, X, Instagram, Facebook, Reddit — tek kutu
+- Kalite seçimi (1080p/720p/480p) + MP3 çıkarma, oynatma listesi desteği
+- **Keşfet** sekmesi: haftanın viral videoları (YouTube Shorts + TikTok + Reels,
+  30M+ filtreli) ve canlı YouTube araması — karttan tek tıkla indirme
+- npm install gerekmez; motor `yt-dlp` (`pip install -U --pre yt-dlp`) + ffmpeg
+
+Detay: [video-indirici/README.md](video-indirici/README.md)
 
 ## Lisans
 
