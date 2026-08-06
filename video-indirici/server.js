@@ -6,6 +6,7 @@
 'use strict';
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -350,6 +351,129 @@ function youtubeAramaUrl(sorgu, donem, tur) {
     encodeURIComponent(sorgu) + '&sp=' + encodeURIComponent(sp);
 }
 
+// ---------------------------------------------------------------- vidIQ canli kesif
+/*
+ * Otomasyonun .env'indeki VIDIQ_KEY ile mcp.vidiq.com'a baglanir,
+ * haftanin viral videolarini ceker (viral-analiz.js'deki istemcinin uyarlamasi).
+ * Anahtar: panel > Kaynaklar sekmesi  (app.vidiq.com/account/settings/mcp)
+ */
+function vidiqAnahtar() {
+  if (process.env.VIDIQ_KEY) return process.env.VIDIQ_KEY.trim();
+  for (const dosya of [path.join(KOK, '.env'), path.join(KOK, '..', '.env')]) {
+    try {
+      for (const l of fs.readFileSync(dosya, 'utf8').split(/\r?\n/)) {
+        const m = l.match(/^VIDIQ_KEY=(.*)$/);
+        if (m && m[1].trim()) return m[1].trim();
+      }
+    } catch { /* dosya yoksa gec */ }
+  }
+  return '';
+}
+
+let vidiqOturum = null, vidiqSayac = 0;
+function vidiqIstek(anahtar, govde, bildirim) {
+  return new Promise((coz, red) => {
+    const veri = JSON.stringify(govde);
+    const h = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream',
+      'Authorization': 'Bearer ' + anahtar,
+      'Content-Length': Buffer.byteLength(veri),
+    };
+    if (vidiqOturum) h['Mcp-Session-Id'] = vidiqOturum;
+    const r = https.request({ hostname: 'mcp.vidiq.com', path: '/mcp', method: 'POST', headers: h, timeout: 90000 }, (res) => {
+      if (res.headers['mcp-session-id']) vidiqOturum = res.headers['mcp-session-id'];
+      let g = '';
+      res.on('data', (c) => g += c);
+      res.on('end', () => {
+        if (res.statusCode === 401) return red(new Error('vidIQ anahtari kabul edilmedi — Kaynaklar sekmesinden yenile'));
+        if (bildirim) return coz(null);
+        let j = null;
+        if (/^\s*\{/.test(g)) { try { j = JSON.parse(g); } catch {} }
+        if (!j) for (const s of g.split(/\r?\n/)) {
+          const m = s.match(/^data:\s*(\{.*\})\s*$/);
+          if (m) { try { const p = JSON.parse(m[1]); if (p.result || p.error) j = p; } catch {} }
+        }
+        if (!j) return red(new Error('vidIQ yaniti okunamadi'));
+        if (j.error) return red(new Error(j.error.message || 'vidIQ hatasi'));
+        coz(j.result);
+      });
+    });
+    r.on('timeout', () => { r.destroy(new Error('vidIQ zaman asimi (90 sn)')); });
+    r.on('error', red);
+    r.write(veri); r.end();
+  });
+}
+
+async function vidiqBaslat(anahtar) {
+  vidiqOturum = null;
+  await vidiqIstek(anahtar, {
+    jsonrpc: '2.0', id: ++vidiqSayac, method: 'initialize',
+    params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'video-indirici', version: '1.0' } },
+  });
+  await vidiqIstek(anahtar, { jsonrpc: '2.0', method: 'notifications/initialized' }, true);
+}
+const vidiqCagir = (anahtar, ad, arg) =>
+  vidiqIstek(anahtar, { jsonrpc: '2.0', id: ++vidiqSayac, method: 'tools/call', params: { name: ad, arguments: arg } });
+
+function mcpYapili(s) {
+  if (!s) return null;
+  if (s.structuredContent) return s.structuredContent;
+  const t = s.content && s.content.find((x) => x.type === 'text');
+  if (!t) return null;
+  try { return JSON.parse(t.text); } catch { return t.text; }
+}
+function mcpMetin(s) {
+  if (!s || !s.content) return '';
+  return s.content.filter((x) => x.type === 'text').map((x) => x.text).join('\n');
+}
+
+// "5.3M" -> 5300000 , "327.2K" -> 327200
+function kisaltmaSayi(s) {
+  const m = /^([\d.,]+)\s*([KMB])?$/i.exec(String(s).trim());
+  if (!m) return 0;
+  const c = { k: 1e3, m: 1e6, b: 1e9 }[(m[2] || '').toLowerCase()] || 1;
+  return Math.round(parseFloat(m[1].replace(/,/g, '')) * c);
+}
+
+// vidIQ'nun IG/TikTok arama ciktisi markdown metin doner — ayristir.
+// (arac/kesfet-derle.cjs ile ayni mantik)
+function igTiktokAyristir(ham) {
+  const satirlar = String(ham).split('\n');
+  const sonuc = [];
+  let platform = null, acik = null;
+  const bitir = () => { if (acik && acik.url) sonuc.push(acik); acik = null; };
+
+  for (const s of satirlar) {
+    if (/^##\s*Instagram/i.test(s)) { bitir(); platform = 'instagram'; continue; }
+    if (/^##\s*TikTok/i.test(s)) { bitir(); platform = 'tiktok'; continue; }
+    const bas = /^\*\*@([^*]+)\*\*\s*[—-]\s*"?(.*?)"?\s*$/.exec(s);
+    if (bas) {
+      bitir();
+      acik = { platform, kanal: '@' + bas[1].trim(), baslik: (bas[2] || '').replace(/\.\.\.$/, '').trim(),
+        izlenme: 0, takipci: 0, sure: 0, katsayi: 0, url: '' };
+      continue;
+    }
+    if (!acik) continue;
+    const olcu = /^\s+([\d.,]+[KMB]?)\s+views(?:\s*\(([\d.,]+)x[^)]*\))?/.exec(s);
+    if (olcu) {
+      acik.izlenme = kisaltmaSayi(olcu[1]);
+      acik.katsayi = olcu[2] ? parseFloat(olcu[2].replace(/,/g, '')) : 0;
+      const tak = /·\s*([\d.,]+[KMB]?)\s+followers/.exec(s);
+      if (tak) acik.takipci = kisaltmaSayi(tak[1]);
+      const sr = /·\s*(\d+)s\s*$/.exec(s);
+      if (sr) acik.sure = Number(sr[1]);
+      continue;
+    }
+    const tt = /^\s*(https:\/\/www\.tiktok\.com\/@[^\s/]+\/video\/\d+)/.exec(s);
+    if (tt) { acik.url = tt[1]; continue; }
+    const ig = /^\s*reel:([A-Za-z0-9_-]+)/.exec(s);
+    if (ig) { acik.url = 'https://www.instagram.com/reel/' + ig[1] + '/'; continue; }
+  }
+  bitir();
+  return sonuc;
+}
+
 // ---------------------------------------------------------------- dosyalar
 const VIDEO_UZANTI = new Set(['.mp4', '.mkv', '.webm', '.mov', '.m4a', '.mp3', '.opus', '.wav', '.avi']);
 
@@ -556,6 +680,66 @@ const sunucu = http.createServer(async (req, res) => {
       } catch {
         return json(res, { guncellendi: null, videolar: [], adet: 0 });
       }
+    }
+
+    // --- kesfet: vidIQ'dan CANLI viral tazeleme (VIDIQ_KEY gerekir, ~10 kredi)
+    if (yol === '/api/kesfet-yenile' && req.method === 'POST') {
+      const anahtar = vidiqAnahtar();
+      if (!anahtar) {
+        return json(res, {
+          hata: 'VIDIQ_KEY girilmemis. Otomasyon panelinin Kaynaklar sekmesinden ekle ' +
+                '(anahtar: app.vidiq.com/account/settings/mcp). O zamana kadar hazir liste gosterilir.',
+        }, 400);
+      }
+      const g = await govdeOku(req);
+      const minYT = Number(g.minIzlenme) || 1000000;
+      const hatalar = [];
+      let ytListe = [], sosyalListe = [];
+      try {
+        await vidiqBaslat(anahtar);
+
+        // 1) YouTube Shorts — bu haftanin patlayanlari (izlenmeye gore)
+        try {
+          const d = mcpYapili(await vidiqCagir(anahtar, 'vidiq_outliers', {
+            contentType: 'short', language: 'en', publishedWithin: 'thisWeek',
+            minViews: minYT, limit: 50, sort: 'viewCount',
+          }));
+          ytListe = ((d && d.videos) || []).map((v) => ({
+            platform: 'youtube', baslik: v.videoTitle || '', kanal: v.channelTitle || '',
+            izlenme: v.viewCount || 0, takipci: v.subscriberCount || 0, sure: v.videoDuration || 0,
+            saatlik: Math.round(v.vph || 0), katsayi: v.breakoutScore || 0, tarih: v.videoPublishedAt || '',
+            kapak: 'https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg',
+            url: 'https://www.youtube.com/watch?v=' + v.videoId,
+          }));
+        } catch (e) { hatalar.push('YouTube: ' + e.message); }
+
+        // 2) TikTok + Instagram — son 7 gunun patlayanlari
+        try {
+          const hafta = new Date(Date.now() - 7 * 86400000).toISOString();
+          const s = await vidiqCagir(anahtar, 'vidiq_instagram_tiktok_outlier_search', {
+            query: 'viral trending video everyone is sharing this week',
+            audienceQuery: 'Culture/Region: Global; Global: true; Demographics: general audience 18-45, entertainment, humor;',
+            resultsPerPlatform: 25, viewsMin: 3000000, datePostedAfter: hafta, collapseByCreator: true,
+          });
+          sosyalListe = igTiktokAyristir(mcpMetin(s));
+        } catch (e) { hatalar.push('TikTok/IG: ' + e.message); }
+      } catch (e) {
+        return json(res, { hata: 'vidIQ baglantisi: ' + String(e && e.message || e) }, 502);
+      }
+
+      const videolar = [...ytListe, ...sosyalListe]
+        .filter((v) => v.url && v.izlenme > 0)
+        .sort((a, b) => b.izlenme - a.izlenme);
+      if (!videolar.length) {
+        return json(res, { hata: 'vidIQ sonuc dondurmedi' + (hatalar.length ? ' — ' + hatalar.join(' · ') : '') }, 502);
+      }
+
+      const cikti = {
+        guncellendi: new Date().toISOString(), kaynak: 'vidIQ (canli)',
+        adet: videolar.length, videolar,
+      };
+      try { fs.writeFileSync(path.join(KOK, 'kesfet-veri.json'), JSON.stringify(cikti, null, 1)); } catch {}
+      return json(res, { ...cikti, uyari: hatalar.length ? hatalar.join(' · ') : undefined });
     }
 
     // --- kesfet: canli YouTube aramasi (yt-dlp, bedava, sinirsiz)

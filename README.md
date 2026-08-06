@@ -190,7 +190,8 @@ BASLAT.bat        # → http://localhost:4190
 - YouTube, TikTok, X, Instagram, Facebook, Reddit — tek kutu
 - Kalite seçimi (4K/1440p/1080p/720p/480p) + MP3 çıkarma, oynatma listesi desteği
 - **Keşfet** sekmesi: haftanın viral videoları (YouTube Shorts + TikTok + Reels,
-  30M+ filtreli) ve canlı YouTube araması — karttan tek tıkla indirme
+  30M+ filtreli) ve canlı YouTube araması — karttan tek tıkla indirme.
+  `VIDIQ_KEY` girildiyse "vidIQ'dan tazele" ile liste canlı güncellenir.
 - npm install gerekmez; motor `yt-dlp` (`pip install -U --pre yt-dlp`) + ffmpeg
 
 Detay: [video-indirici/README.md](video-indirici/README.md)

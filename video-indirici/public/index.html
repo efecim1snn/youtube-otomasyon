@@ -315,7 +315,7 @@
     </div>
     <div class="satir">
       <button class="dugme" id="toplu">⬇ Görünenlerin ilk 10’unu indir</button>
-      <button class="dugme ikincil" id="kesfet-yenile">↻ Yenile</button>
+      <button class="dugme ikincil" id="kesfet-yenile">🔄 vidIQ’dan tazele</button>
       <span class="ipucu" id="kesfet-bilgi" style="margin-top:0"></span>
     </div>
   </div>
@@ -671,6 +671,20 @@ async function topluIndir(){
   tost(ilk.length+' video kuyruğa eklendi');
 }
 
+async function kesfetTazele(){
+  const b = $('#kesfet-yenile');
+  b.disabled = true; b.textContent = '⏳ vidIQ’dan çekiliyor…';
+  tost('Canlı viral listesi çekiliyor (~30 sn, ~10 kredi)');
+  const c = await api('/api/kesfet-yenile', { minIzlenme: 1000000 });
+  b.disabled = false; b.textContent = '🔄 vidIQ’dan tazele';
+  if(c.hata){ tost('⚠ '+c.hata); return; }
+  kesfetHam = c.videolar || [];
+  istenen.clear();
+  kesfetSuz();
+  $('#kesfet-bilgi').textContent = 'vidIQ canlı · az önce güncellendi · '+c.adet+' video';
+  tost(c.uyari ? '⚠ Kısmi güncelleme: '+c.uyari : '✓ '+c.adet+' viral video güncellendi');
+}
+
 async function canliAra(){
   const sorgu = $('#arama').value.trim();
   if(!sorgu){ tost('Aranacak kelimeyi yaz'); $('#arama').focus(); return; }
@@ -699,7 +713,7 @@ cipGrubu('data-min',   (v)=>{ filtreMin=Number(v); kesfetSuz(); });
 cipGrubu('data-donem', (v)=>{ aramaDonem=v; });
 cipGrubu('data-tur',   (v)=>{ aramaTur=v; });
 $('#toplu').onclick = topluIndir;
-$('#kesfet-yenile').onclick = kesfetYukle;
+$('#kesfet-yenile').onclick = kesfetTazele;
 $('#ara').onclick = canliAra;
 $('#arama').addEventListener('keydown',(e)=>{ if(e.key==='Enter') canliAra(); });
 

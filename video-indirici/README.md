@@ -30,7 +30,12 @@ npm install **gerekmez** — sıfır bağımlılık.
 - Bitince: Oynat / Klasörde göster / Sil
 
 **🔥 Keşfet sekmesi**
-- Viral akış: `kesfet-veri.json` içindeki hazır liste (YouTube Shorts + TikTok + Instagram Reels, izlenme ve "patlama" katsayılarıyla) — platform ve izlenme barajı (1M/5M/10M/30M+) filtreleri, karttan tek tıkla indirme
+- Viral akış: haftanın patlayan videoları (YouTube Shorts + TikTok + Instagram Reels,
+  izlenme ve "patlama" katsayılarıyla) — platform ve izlenme barajı (1M/5M/10M/30M+)
+  filtreleri, karttan tek tıkla indirme
+- **"vidIQ'dan tazele"**: `.env`'deki `VIDIQ_KEY` ile (panel > Kaynaklar sekmesi)
+  listeyi canlı günceller — 50 YT Shorts + 25 TikTok + 25 Reels, ~10 vidIQ kredisi.
+  Anahtar yoksa depodaki hazır liste gösterilmeye devam eder.
 - Canlı arama: YouTube'da dönem (bugün/hafta/ay) + süre (Shorts/uzun) filtreli, izlenmeye göre sıralı arama — yt-dlp ile, ücretsiz ve sınırsız
 
 ## Notlar
