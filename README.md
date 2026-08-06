@@ -73,6 +73,43 @@ node video-yap.js   <is-adi>     # kurgu ve render
 
 İşler `uretim/<is-adi>/` altında durur. Ayarlar o klasördeki `konu.json` dosyasında.
 
+## Karşılaştırma Shorts'u (VS formatı)
+
+Belgesel akışından farklı, ikinci bir video tipi: ekran ortadan ikiye bölünür, iki
+konu yarışır, arada şimşek ayraç, altta animasyonlu ölçü barları ve dövüş müziği.
+YouTube Shorts ve Instagram Reels için 9:16.
+
+```bash
+node vs-kur.js                   # örnek eşleşmeleri kurar + görselleri indirir
+node vs-yap.js <is-adi>          # 9:16 VS videosunu render eder
+node vs-gorsel-duzelt.js         # yanlış tür gelen görselleri değiştirir
+```
+
+Eşleşmeler `vs-kur.js` içindeki `ISLER` dizisinde tanımlı; yeni bir tane eklemek
+için bir satır yazmak yeterli. Her ölçü için `ustDeger`/`altDeger` sayısal,
+`ustMetin`/`altMetin` ekranda görünen metin, `kazanan` o turu kim alıyor.
+
+Bar uzunluğu 0.35 kuvvetiyle ölçeklenir — doğrusal olsaydı 11 cm ile 5.59 m yan
+yana çizilince kısa bar görünmez olurdu, logaritmik olsaydı aradaki fark yok gibi
+dururdu.
+
+**Görsel uyarısı:** stok siteleri bazen yanlış tür döndürüyor (bal porsuğu yerine
+bronz heykel, kutup ayısı yerine müze maketi). `vs-gorsel-duzelt.js` aday metnini
+eleyip Wikimedia'nın tür sayfalarından çekiyor.
+
+## Kanal markası
+
+```bash
+node marka-yap.js "KANAL ADI" "SLOGAN" [cikis-klasoru]
+```
+
+Profil resmi (1024x1024, daireye kırpılınca doğru duracak şekilde) ve banner
+(2560x1440, yazılar 1546x423 güvenli alanın içinde) üretir. Kanalın kendi
+görsellerini kullanır, videolardaki şimşek ve VS rozetiyle aynı dili taşır.
+
+Yanında çıkan `_banner-guvenli-alan-kontrol.png` yüklenmez — telefon/tablet
+sınırlarını gösteren kontrol kopyasıdır.
+
 ## Nasıl çalışıyor
 
 **Senaryo.** vidIQ'nun senaryo üretecine konu, başlık ve hedef süre gider. Dönen markdown temizlenip düz paragraflara indirilir. vidIQ istenen süreden ~1.55 kat uzun yazdığı için hedef süre bu katsayıya bölünerek istenir.

@@ -46,7 +46,11 @@ function synth(tts, text) {
 
     if (metadataStream) metadataStream.on("data", d => {
       try {
-        const obj = typeof d === "string" ? JSON.parse(d) : d;
+        // msedge-tts metadatayi Buffer olarak yolluyor (string degil).
+        // Buffer'i cozmeden JSON.parse atlanirsa kelime zamanlari HIC yakalanmaz.
+        const obj = Buffer.isBuffer(d) ? JSON.parse(d.toString("utf8"))
+                  : typeof d === "string" ? JSON.parse(d)
+                  : d;
         const list = obj.Metadata || (Array.isArray(obj) ? obj : [obj]);
         for (const m of list) {
           if (m.Type === "WordBoundary" && m.Data) {

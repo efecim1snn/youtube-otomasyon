@@ -136,8 +136,22 @@ function icerik(s) {
   // 3) anahtar kelime arastirmasi
   // 'keyword' KISA ve GENEL olmali. Cok spesifik tohum ("gave claude 500 einsteins")
   // sifir arama hacmi doner — bu yuzden genelden ozele birkac tohum deniyoruz.
-  const DURAK = new Set(("the a an and or of in on to for is are was how why what when this that with " +
-    "i we you it my your just now new best top gave gave asked found here s did does").split(/\s+/));
+  // Durak listesi GENIS olmali. Dar tutulunca senaryonun en sik kelimeleri
+  // "not than" gibi anlamsiz bir tohum uretiyor, vidIQ da anlamsiz tohuma
+  // o anki trendi donduruyor (bir bilim videosuna "anime full episode" geldi).
+  const DURAK = new Set(("the a an and or of in on to for is are was were be been being how why what when where " +
+    "this that these those with without within from into onto over under about across through " +
+    "i we you it its it's my your our their them they he she his her him us me " +
+    "just now new best top gave asked found here there then than not no nor so but yet " +
+    "s did does do done doing did can could would should will shall may might must " +
+    "have has had having get gets got make makes made made take takes took " +
+    "one two three first second last next each every all any some many much more most " +
+    "very only also even still much less least own same other another such both either neither " +
+    "because since while during before after again once ever never always often sometimes " +
+    "thing things something anything nothing everything way ways lot lots kind sort " +
+    "who whom whose which whether if unless until than as at by out up down off " +
+    "like likes look looks say says said see sees seen know knows known think thinks " +
+    "come comes came go goes went want wants use uses used using").split(/\s+/));
   const sozcuk = m => String(m).toLowerCase().replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/).filter(w => w.length > 2 && !DURAK.has(w) && !/^\d+$/.test(w));
 
@@ -166,6 +180,37 @@ function icerik(s) {
     ingilizceMi(notKonu) ? sozcuk(notKonu).slice(0, 2).join(" ") : "",
   ].filter(t => t && t.length > 2 && ingilizceMi(t)))];
 
+  // Videonun kendi kelime dagarcigi — donen etiketlerin alakasini olcmek icin.
+  const dagarcik = new Set([...bs, ...senaryoKelime]);
+  try {
+    const sen = fs.readFileSync(path.join(KLASOR, "Voice", "SESLENDIRME-TAM-METIN.txt"), "utf8");
+    for (const w of sozcuk(sen)) dagarcik.add(w);
+  } catch (e) {}
+
+  // vidIQ anlamsiz tohuma o anki trendi donduruyor. Donen listenin gercekten
+  // bu videoyla ilgili olup olmadigini kontrol et: etiketlerin en az ucte biri
+  // videonun kelime dagarciginda gecmiyorsa listeyi cope at, sonraki tohumu dene.
+  // DIKKAT: tohumun kendi kelimeleri sayilmamali. Yoksa "material" tohumu
+  // Madonna'nin "Material Girl" listesini gecirir — her satirda "material"
+  // gectigi icin alakali sanilir. Tohum disinda ortak kelime aranir.
+  // Bunlar hemen her senaryoda gecer, dolayisiyla ALAKA KANITI SAYILMAZ.
+  // "material world" ornegi: Madonna sarkisi listesi sirf "world" gectigi
+  // icin alakali sanildi. Kanit, konuya ozgu bir kelime olmali.
+  const COKGENEL = new Set(("world people person time times life live living day days year years " +
+    "man men woman women boy girl home house work money god war story full episode official " +
+    "video trailer lyrics song music tiktok shorts funny reaction vlog channel subscribe " +
+    "part place point number thing name today tomorrow yesterday history future past").split(/\s+/));
+
+  const alakali = (liste, tohum) => {
+    const metin = liste.map(x => (x && (x.keyword || x.query || x.text || x.name)) || String(x));
+    if (!metin.length) return false;
+    const tohumKel = new Set(sozcuk(tohum));
+    const kanit = t => sozcuk(t).some(w =>
+      !tohumKel.has(w) && !COKGENEL.has(w) && dagarcik.has(w));
+    const tutan = metin.filter(kanit).length;
+    return tutan / metin.length >= 0.34;
+  };
+
   let kl = [], kullanilanTohum = null;
   for (const tohum of tohumlar) {
     console.log("anahtar kelimeler araştırılıyor: \"" + tohum + "\"");
@@ -175,10 +220,15 @@ function icerik(s) {
       }));
       const bulunan = Array.isArray(k) ? k
         : (k && (k.relatedKeywords || k.keywords || k.results)) || [];
+      if (bulunan.length && !alakali(bulunan, tohum)) {
+        console.log("  " + bulunan.length + " kelime döndü ama konuyla alakasız — atlandı");
+        continue;
+      }
       if (bulunan.length) { kl = bulunan; kullanilanTohum = tohum; break; }
       console.log("  sonuç yok, daha genel tohum deneniyor…");
     } catch (e) { console.log("  olmadı: " + e.message.slice(0, 80)); }
   }
+  if (!kl.length) console.log("anahtar kelime bulunamadı — etiketleri elle yaz.");
 
   try {
     if (kullanilanTohum) satirlar.push("_Arama tohumu: **" + kullanilanTohum + "**_", "");

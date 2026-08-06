@@ -115,7 +115,20 @@ const BD = "C\\:/Windows/Fonts/arialbd.ttf";
 const RG = "C\\:/Windows/Fonts/arial.ttf";
 const sp = s => s.split("").join(" ");     // harf arasi bosluk
 
-const run = (args, cwd) => execFileSync(FF, args, { cwd, stdio: ["ignore", "ignore", "pipe"], maxBuffer: 1 << 26 });
+// Hata durumunda execFileSync'in firlattigi nesne loga ham Buffer olarak
+// basiliyordu ve ffmpeg'in ne dedigi hic gorunmuyordu. stderr'i cozup yaziyoruz.
+const run = (args, cwd) => {
+  try {
+    return execFileSync(FF, args, { cwd, stdio: ["ignore", "ignore", "pipe"], maxBuffer: 1 << 26 });
+  } catch (e) {
+    const err = (e.stderr && e.stderr.toString("utf8")) || e.message || "";
+    const satirlar = err.split(/\r?\n/).filter(s =>
+      s.trim() && !/^\s*(built with|configuration:|lib(av|sw|postproc)\w*)/i.test(s));
+    console.error("\n!! ffmpeg hatasi:\n  " + args.slice(0, 12).join(" ") +
+                  "\n" + satirlar.slice(-12).join("\n"));
+    throw new Error("ffmpeg: " + (satirlar[satirlar.length - 1] || "bilinmeyen hata"));
+  }
+};
 const dur = f => Number(execFileSync(FP, ["-v","error","-show_entries","format=duration","-of","csv=p=0", f]).toString().trim());
 const srtTime = ms => {
   const h=Math.floor(ms/3600000), m=Math.floor(ms%3600000/60000), s=Math.floor(ms%60000/1000), x=Math.floor(ms%1000);
