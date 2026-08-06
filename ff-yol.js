@@ -46,3 +46,13 @@ module.exports = {
   get ffmpeg()  { return _ff || (_ff = bul("ffmpeg")); },
   get ffprobe() { return _fp || (_fp = bul("ffprobe")); },
 };
+
+// Dogrudan calistirilinca kontrol amaclidir: ffmpeg varsa yolu yazip 0 ile,
+// yoksa kurulum talimatiyla 1 ile cikar. PANEL.bat bunu kullaniyor.
+// (Getter'lar tembel oldugu icin sadece require etmek kontrol yapmiyordu.)
+if (require.main === module) {
+  const ff = module.exports.ffmpeg;      // bulunamazsa bul() zaten cikis yapar
+  const fp = module.exports.ffprobe;
+  console.log(ff);
+  console.log(fp);
+}
