@@ -139,11 +139,13 @@ function isGuncelle(is) { yayinla('is', isOzet(is)); }
 // ---------------------------------------------------------------- format secici
 function formatSecici(kalite) {
   if (kalite === 'mp3') return null; // ses ayri islenir
-  const h = { '1080': 1080, '720': 720, '480': 480 }[kalite];
-  if (!h) {
-    // en iyi: once mp4/avc1 dene (her oynaticida acilir), olmazsa ne varsa
-    return 'bv*[vcodec^=avc1]+ba[ext=m4a]/bv*+ba/b';
-  }
+  const h = { '2160': 2160, '1440': 1440, '1080': 1080, '720': 720, '480': 480 }[kalite];
+  // "En iyi": ne varsa en yuksegi (4K dahil), kodek fark etmez
+  if (!h) return 'bv*+ba/b';
+  // 1440p+: cozunurluk oncelikli — YouTube 4K'yi sadece VP9/AV1 verir,
+  // H.264 sartina takilirsak 1080'e duseriz
+  if (h > 1080) return `bv*[height<=${h}]+ba/b[height<=${h}]/b`;
+  // 1080p ve alti: once H.264+M4A (her cihazda acilir), yoksa ne varsa
   return `bv*[vcodec^=avc1][height<=${h}]+ba[ext=m4a]/bv*[height<=${h}]+ba/b[height<=${h}]/b`;
 }
 

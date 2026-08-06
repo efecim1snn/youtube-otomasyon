@@ -23,7 +23,8 @@ npm install **gerekmez** — sıfır bağımlılık.
 
 **⬇ İndir sekmesi**
 - Tek veya çoklu link (alt alta yapıştır), kuyruk 2'şerli indirir
-- Kalite: En iyi / 1080p / 720p / 480p / MP3 (ses çıkarma)
+- Kalite: En iyi / 4K / 1440p / 1080p / 720p / 480p / MP3 (ses çıkarma)
+  — "En iyi" ve 4K/1440p çözünürlük öncelikli; 1080p ve altı H.264 öncelikli (her cihazda açılır)
 - Canlı ilerleme (%, hız, kalan süre), kapak görseli
 - Oynatma listesi desteği · Chrome çerezleriyle gizli/yaş sınırlı içerik
 - Bitince: Oynat / Klasörde göster / Sil

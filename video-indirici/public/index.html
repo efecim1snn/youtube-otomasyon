@@ -250,6 +250,8 @@
 
     <div class="satir">
       <button class="cip" data-kalite="en-iyi">En iyi</button>
+      <button class="cip" data-kalite="2160">4K</button>
+      <button class="cip" data-kalite="1440">1440p</button>
       <button class="cip" data-kalite="1080">1080p</button>
       <button class="cip" data-kalite="720">720p</button>
       <button class="cip" data-kalite="480">480p</button>
@@ -300,6 +302,16 @@
       <button class="cip" data-min="5000000">5M+</button>
       <button class="cip" data-min="10000000">10M+</button>
       <button class="cip" data-min="30000000">30M+</button>
+    </div>
+    <div class="satir">
+      <span class="etiket">Kalite</span>
+      <button class="cip" data-kalite="en-iyi">En iyi</button>
+      <button class="cip" data-kalite="2160">4K</button>
+      <button class="cip" data-kalite="1440">1440p</button>
+      <button class="cip" data-kalite="1080">1080p</button>
+      <button class="cip" data-kalite="720">720p</button>
+      <button class="cip" data-kalite="480">480p</button>
+      <button class="cip" data-kalite="mp3">🎵 MP3</button>
     </div>
     <div class="satir">
       <button class="dugme" id="toplu">⬇ Görünenlerin ilk 10’unu indir</button>
@@ -396,6 +408,7 @@ function isCiz(is){
   if(is.kanal) meta.push(kacan(is.kanal));
   if(is.sure) meta.push(sureYazi(is.sure));
   if(is.kalite==='mp3') meta.push('MP3');
+  else if(is.kalite==='2160') meta.push('4K');
   else if(is.kalite!=='en-iyi') meta.push(is.kalite+'p');
   const durumEk = is.durum==='indiriliyor'
     ? [is.yuzde?is.yuzde.toFixed(0)+'%':'', hizYazi(is.hiz), is.kalan?'~'+sureYazi(is.kalan):''].filter(Boolean).join(' · ')
@@ -545,9 +558,11 @@ async function baslangic(){
 /* cip gruplari: her grup kendi icinde tek secim */
 function cipGrubu(alan, seçildi){
   const hepsi = [...document.querySelectorAll('.cip['+alan+']')];
+  const ad = alan.replace('data-','');
   hepsi.forEach((b)=> b.onclick = ()=>{
-    hepsi.forEach((x)=> x.classList.toggle('secili', x===b));
-    seçildi(b.dataset[alan.replace('data-','')], b);
+    // ayni deger baska sekmede de varsa ikisini birden isaretle (kalite cipleri iki yerde)
+    hepsi.forEach((x)=> x.classList.toggle('secili', x.dataset[ad]===b.dataset[ad]));
+    seçildi(b.dataset[ad], b);
   });
 }
 cipGrubu('data-kalite', (v)=>{ kalite = v; });
