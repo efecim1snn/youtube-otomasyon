@@ -517,10 +517,25 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+// --- Video Indirici modulu: panel ile birlikte ayaga kalkar (port 4190) ---
+// Ayrica BASLAT.bat ile tek basina da calisir; port doluysa (zaten acik
+// demektir) cocuk surec sessizce cikar, panel etkilenmez.
+function indiriciBaslat() {
+  const dosya = path.join(KOK, "video-indirici", "server.js");
+  if (!fs.existsSync(dosya)) return false;
+  const p = spawn(process.execPath, [dosya], {
+    cwd: path.dirname(dosya), windowsHide: true, stdio: "ignore",
+  });
+  p.on("error", () => {});
+  return true;
+}
+
 server.listen(PORT, () => {
+  const indirici = indiriciBaslat();
   console.log("\n  ============================================");
   console.log("   YOUTUBE OTOMASYON PANELI");
   console.log("  ============================================\n");
-  console.log("   http://localhost:" + PORT + "\n");
-  console.log("   Kapatmak icin bu pencereyi kapat.\n");
+  console.log("   Panel          : http://localhost:" + PORT);
+  if (indirici) console.log("   Video Indirici : http://localhost:4190");
+  console.log("\n   Kapatmak icin bu pencereyi kapat.\n");
 });
