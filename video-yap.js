@@ -381,7 +381,9 @@ function wrap(text, max) {
   // --- KONU KARTI: bu video ne anlatiyor ---
   const cards = [];
   if (TOPIC_D > 0 && KONU_BASLIK) {
-    const lines = wrap(KONU_BASLIK.replace(/—/g, "-"), 26);
+    // ffmpeg filtre ayraclarini metinden temizle: ":" filtreyi bolup
+    // "Error opening output files: Invalid argument" hatasina yol aciyordu
+    const lines = wrap(KONU_BASLIK.replace(/—/g, "-").replace(/:/g, " -").replace(/[;\\]/g, ""), 26);
     const topicPng = path.join(TMP, "topic.png");
     let dt = "";
     lines.forEach((ln, i) => {
