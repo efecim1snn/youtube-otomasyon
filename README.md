@@ -21,34 +21,51 @@ bitmiş MP4 + altyazı
 
 - **Herhangi bir konu.** Spor, reklam, tarih, bilim, tanıtım — fark etmez. Görsel arama kelimelerini senaryodan kendisi çıkarır.
 - **Dört format:** YouTube uzun video (16:9, en az 15 dk) · YouTube Shorts (9:16, max 45 sn) · **Instagram Reels** (9:16, varsayılan 3 dk) · **TikTok** (9:16, varsayılan 60 sn). Süre sınırları otomatik uygulanır; Reels ve TikTok'ta abone-ol kapanışı çıkarılır.
-- **İki dilli altyazı.** İngilizce seslendirme + Türkçe gömülü altyazı.
+- **Gömülü altyazı.** Seslendirmeyle aynı dilde otomatik üretilir. Farklı dilde altyazı istersen `Voice/ALTYAZI-TR.txt` gibi bir dosya koyman yeterli.
 - **Prosedürel intro/outro.** Marka animasyonu, sinematik geri sayım, abone ol kapanışı — hepsi ffmpeg ile üretilir, hazır dosya gerekmez.
 - **33 geçiş tipi, 5 hareket efekti, 6 renk tonu.** Panelden seçilir.
 - **Türkçe seslendirme.** `konu.json`'a `"ses": "tr-TR-AhmetNeural"` yazınca hem seslendirme hem altyazı Türkçe olur. Konuşma hızı otomatik ayarlanır (Türkçe 113, İngilizce 151 kelime/dk).
 - **GPU hızlandırma.** Açılışta NVIDIA/AMD donanım kodlayıcısını dener; varsa kullanır, yoksa sessizce CPU'ya döner. Ayar gerekmez.
 - **Bilgisayarı kilitlemez.** Render düşük öncelikte çalışır; tarayıcı, mesajlaşma uygulaması normal açılır.
 
-## Gereksinimler
-
-| | |
-|---|---|
-| **Node.js** | 18+ ([nodejs.org](https://nodejs.org)) |
-| **ffmpeg** | Windows: `winget install Gyan.FFmpeg` · Mac: `brew install ffmpeg` · Linux: `sudo apt install ffmpeg`<br>Nasıl kurduğun fark etmez — PATH'te veya yaygın kurulum yerlerinde arar. |
-| **vidIQ anahtarı** | Senaryo yazımı + başlık puanlama — [app.vidiq.com/account/settings/mcp](https://app.vidiq.com/account/settings/mcp) |
-
-**Senaryo motoru iki seçenek:** vidIQ (üyeliğin varsa ek ücret yok) veya Anthropic API (senaryo başına ~10 sent, daha iyi kalite). İkisinden biri yeterli — Anthropic anahtarı girilirse panel onu tercih eder.
-
-Görsel kaynakları için anahtar **zorunlu değil** — Wikimedia ve NASA anahtarsız çalışır. Pexels/Pixabay anahtarı eklersen görsel kalitesi belirgin şekilde artar (ikisi de ücretsiz).
-
 ## Kurulum
+
+**Windows:** depoyu indir, **PANEL.bat** dosyasina cift tikla. Hepsi bu.
+
+Eksik olan her seyi kendisi kurar: Node.js, ffmpeg, bagimliliklar ve ayar
+dosyasi. Sonra paneli acar. (Windows 10 1809+ / Windows 11 gerekir — winget
+oradan itibaren hazir geliyor.)
+
+```bash
+git clone https://github.com/efecim1snn/youtube-otomasyon.git
+```
+
+**Mac / Linux:**
 
 ```bash
 git clone https://github.com/efecim1snn/youtube-otomasyon.git
 cd youtube-otomasyon
 npm install
+node panel.js
 ```
 
-Sonra `.env.ornek` dosyasını `.env` olarak kopyala ve anahtarlarını yaz — ya da paneli açıp **Kaynaklar** sekmesinden gir.
+ffmpeg gerekiyor: `brew install ffmpeg` veya `sudo apt install ffmpeg`
+
+### Anahtarlar
+
+Hicbiri zorunlu degil, panel anahtarsiz da acilir.
+
+| | |
+|---|---|
+| **vidIQ** | senaryo yazimi + baslik puanlama — [app.vidiq.com/account/settings/mcp](https://app.vidiq.com/account/settings/mcp) |
+| **Anthropic** | senaryo yazimi (daha iyi kalite, ~10 sent/senaryo) |
+| **Pexels / Pixabay** | gorsel kalitesini belirgin artirir, ikisi de ucretsiz |
+
+Gorsel uretimi icin anahtar gerekmiyor (Pollinations varsayilan).
+Seslendirme icin de gerekmiyor (Microsoft nöral sesler, ucretsiz).
+
+Panelin **Kaynaklar** sekmesinden girilebilir; `.env` dosyasini elle
+duzenlemek de olur.
 
 ## Çalıştırma
 
