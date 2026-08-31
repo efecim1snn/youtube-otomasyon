@@ -11,6 +11,9 @@ const { execFileSync, execFile } = require("child_process");
 const JOB = process.argv[2] || "001-time-travel";
 const FF = require("./ff-yol").ffmpeg;
 const FP = require("./ff-yol").ffprobe;
+// ffmpeg 9'da -filter_complex_script kaldirildi, yerine -/filter_complex geldi.
+// ff-yol.js hangisinin calistigini deneyip soyluyor.
+const FILTRE_BAYRAK = require("./ff-yol").filtreBayragi;
 
 // ---------- ONCELIK: RENDER ARKA PLANDA KALSIN ----------
 // ffmpeg varsayilan olarak Normal oncelikte calisir, yani tarayici ve diger
@@ -351,7 +354,7 @@ function wrap(text, max) {
     const out = path.join(TMP, "grp" + String(g).padStart(2,"0") + ".mp4");
     if (!fs.existsSync(out)) {
       const { args, fcFile } = xfadeMerge(part, out);
-      run([...args,"-filter_complex_script",fcFile,"-map","[vm]",
+      run([...args,FILTRE_BAYRAK,fcFile,"-map","[vm]",
            ...VIDEO_KODEK,"-an",out], TMP);
     }
     groups.push(out);
@@ -455,7 +458,7 @@ function wrap(text, max) {
       const out = path.join(TMP, `ust${kademe}_${String(g).padStart(2, "0")}.mp4`);
       if (!fs.existsSync(out)) {
         const { args, fcFile } = xfadeMerge(part, out);
-        run([...args, "-filter_complex_script", fcFile, "-map", "[vm]",
+        run([...args, FILTRE_BAYRAK, fcFile, "-map", "[vm]",
              ...VIDEO_KODEK, "-an", out], TMP);
       }
       ust.push(out);
@@ -614,7 +617,7 @@ function wrap(text, max) {
   const fcFile = path.join(BASE,"_filter_final.txt");
   fs.writeFileSync(fcFile, fc.join(";\n"), "utf8");
 
-  run(["-y",...inputs,"-i",voicePadded,"-i",musicFile,...(cdWav ? ["-i", cdWav] : []),"-filter_complex_script",fcFile,
+  run(["-y",...inputs,"-i",voicePadded,"-i",musicFile,...(cdWav ? ["-i", cdWav] : []),FILTRE_BAYRAK,fcFile,
        "-map","[vout]","-map","[aout]",
        ...(GPU ? GPU.argv : ["-c:v","libx264","-preset","medium","-crf","20"]),"-pix_fmt","yuv420p",
        "-c:a","aac","-b:a","192k","-r",String(FPS),"-shortest",outFile], BASE);
