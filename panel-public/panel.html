@@ -142,6 +142,16 @@ function logYaz(t,tip){
 
 // tazeleSag=true SADECE kullanici bir sey yaptiginda. Otomatik yenileme
 // sag paneli asla yeniden cizmez — yoksa acik form ve yazdigin metin ucar.
+// Bazi araclar bu depoda yok (DJ mix gibi). Sekmesini hic gostermemek,
+// tiklayip hata almaktan iyi.
+async function ozellikleriYukle(){
+  try{
+    const o=await api("/api/ozellikler");
+    if(!o.muzik){ const b=document.querySelector('nav button[data-t="muzik"]'); if(b) b.remove(); }
+    if(!o.indirici){ const a=document.querySelector('nav a.dis-arac'); if(a) a.remove(); }
+  }catch(e){}
+}
+
 async function yukle(tazeleSag){
   const d=await api("/api/isler");
   ISLER=d.isler;
@@ -249,7 +259,8 @@ async function yeniOlustur(hemenUret){
       sureDk:parseFloat($("#nSure").value)||0})});
   if(r.hata) return alert(r.hata);
 
-  SECILI=r.ad; EKRAN="is"; await yukle(true);
+  SECILI=r.ad; EKRAN="is"; await ozellikleriYukle();
+yukle(true);
   logYaz("yeni iş: "+r.ad,"ok");
   if(hemenUret) calistir("hepsi",r.ad);
 }

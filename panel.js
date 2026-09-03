@@ -81,6 +81,12 @@ function isDurumu(ad) {
   };
 }
 
+// --- bir script bu kurulumda var mi ---
+// Depo YouTube + Instagram video uretimine odakli; DJ mix araclari
+// (mix-pro.js, ton-analiz.js) kapsam disi birakildi. Bunlari cagiran
+// bir dugmeye basilirsa spawn "Cannot find module" ile cokuyordu.
+const scriptVar = k => fs.existsSync(path.join(KOK, k));
+
 // --- script calistir ---
 function calistir(komut, argv) {
   const id = "r" + (++sayac);
@@ -217,6 +223,14 @@ const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   const yol = u.pathname;
 
+  if (yol === "/api/ozellikler") {
+    // Panel bunu acilista sorar ve olmayan araclarin sekmesini gizler.
+    return json(res, 200, {
+      muzik: scriptVar("mix-pro.js") && scriptVar("ton-analiz.js"),
+      indirici: fs.existsSync(path.join(KOK, "video-indirici", "server.js")),
+    });
+  }
+
   if (yol === "/api/isler") {
     let liste = [];
     try {
@@ -341,6 +355,12 @@ const server = http.createServer(async (req, res) => {
 
     const g = izin[b.tur];
     if (!g) return json(res, 400, { hata: "gecersiz islem" });
+    if (!scriptVar(g[0]))
+      return json(res, 400, {
+        hata: g[0] + " bu kurulumda yok.\n\n" +
+              "Bu arac deponun kapsami disinda birakildi " +
+              "(depo YouTube + Instagram video uretimine odakli)."
+      });
     return json(res, 200, { id: calistir(g[0], g[1]) });
   }
 
