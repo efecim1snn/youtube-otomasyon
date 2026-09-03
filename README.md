@@ -176,6 +176,38 @@ bir bina, bir olay — stok fotoğraf kullan. Üretilmiş görsel orada yalan s�
 Üretim soyut kavramlar için: "kuantum dolanıklığı", "sinir ağı", "hiçliğin
 içinden çıkan yapı".
 
+## Trend arama — YouTube + Instagram + TikTok
+
+Panelde **Trendler** sekmesi. Ya da:
+
+```bash
+node trend-ara.js "animal comparison"        # ucu birden
+node trend-ara.js "konu" --dil tr            # Turkce icerik
+node trend-ara.js "konu" --platform yt       # sadece YouTube (yt | ig | tt)
+node trend-ara.js "konu" --siki              # YouTube basliginda tum kelimeler gecsin
+node trend-ara.js                            # konu vermeden genel trend
+```
+
+Rapor `trend/<tarih>-<konu>.md` olarak yazilir.
+
+**Iki farkli sey olculuyor, o yuzden iki ayri bolum var:**
+
+- **YouTube — hiz.** Saatlik izlenme. Su an ne buyuyor. Toplam izlenme esigi
+  koymak yanlis olur: taze bir video saatte 3000 izlenme aliyor olsa da henuz
+  500 bine ulasmamis olur ve esige takilir.
+- **Instagram / TikTok — asiri performans.** Videonun, o hesabin kendi
+  ortalamasini kac kat astigi. Buyuk hesap olmak gerekmiyor; kalibi tutan
+  kucuk hesap da listeye giriyor.
+
+Instagram/TikTok bolumu her video icin **ilk uc saniyeyi** ayirir:
+`hook_0_3s` alani ekranda ne oldugunu, ne yazdigini ve ne duyuldugunu
+soyler. Yaninda `format`, `effort` (ne kadar emek) ve `audio_mix` durur.
+Kalip orada; bir sey bir saatlik emekle milyonlar aliyorsa o formati kendi
+konunla tekrarlamak en hizli yol.
+
+Ayni kalibi iki farkli hesapta gorduysen o bir trend. Bir kere gorduysen
+tesadüf olabilir.
+
 ## Viral Shorts analizi
 
 ```bash

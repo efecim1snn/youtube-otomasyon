@@ -90,6 +90,7 @@
   <nav>
     <button data-t="videolar" class="on">Videolar</button>
     <button data-t="muzik">Müzik</button>
+    <button data-t="trend">Trendler</button>
     <button data-t="kaynaklar">Kaynaklar</button>
     <a class="dis-arac" href="http://localhost:4190" target="_blank"
        title="Link yapıştır → indir. YouTube, TikTok, X, Instagram + viral Keşfet">⬇ Video İndirici</a>
@@ -122,6 +123,15 @@ const slug=s=>String(s).replace(/[ıİşŞğĞüÜöÖçÇâÂîû]/g,c=>TR[c])
   .replace(/-+$/,"");
 const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const api=(u,o)=>fetch(u,o).then(r=>r.json());
+
+async function calistirGoster(govde,mesaj){
+  const L=$("#log"); if(L) L.innerHTML="";
+  logYaz(mesaj||"başlatılıyor…");
+  const d=await api("/api/calistir",{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify(govde)});
+  if(d.hata){ logYaz(d.hata,"hata"); return; }
+  izle(d.id);
+}
 
 function logYaz(t,tip){
   const d=document.createElement("div");
@@ -256,6 +266,7 @@ function cizSag(){
   if(EKRAN==="yeni") return;          // yeni video formu acikken uzerine cizme
   const S=$("#sag");
   if(SEKME==="muzik") return S.innerHTML=muzikHTML();
+  if(SEKME==="trend") return S.innerHTML=trendHTML();
   if(SEKME==="kaynaklar") return S.innerHTML=kaynakHTML(), kaynakYukle();
   const i=ISLER.find(x=>x.ad===SECILI);
   if(!i) return S.innerHTML=`<div class="bos">Soldan bir iş seç veya yeni oluştur</div>`;
@@ -541,6 +552,78 @@ function muzikHTML(){
 }
 function muzikCalistir(tur){
   calistir(tur,null,{klasor:$("#mklasor").value,mixAd:$("#mad").value});
+}
+
+
+function trendHTML(){
+  return `
+  <div class="ust">
+    <div><h2>Trend Arama</h2>
+      <div class="kucuk">YouTube · Instagram · TikTok — üçü birden taranır, rapor <code>trend/</code> klasörüne yazılır</div></div>
+  </div>
+
+  <div class="kart">
+    <h3>Konuya göre trend ara</h3>
+    <div class="alan"><label>Konu</label>
+      <input id="tKonu" placeholder="örn. animal comparison — boş bırakırsan genel trend gelir"></div>
+    <div class="satir">
+      <div class="alan" style="flex:1"><label>Dil</label>
+        <select id="tDil">
+          <option value="en">İngilizce</option>
+          <option value="tr">Türkçe</option>
+          <option value="es">İspanyolca</option>
+          <option value="de">Almanca</option>
+          <option value="ar">Arapça</option>
+        </select></div>
+      <div class="alan" style="flex:1"><label>Instagram/TikTok izlenme eşiği</label>
+        <input id="tMin" value="200000"></div>
+      <div class="alan" style="flex:1"><label>Platform</label>
+        <select id="tPlatform">
+          <option value="hepsi">Üçü birden</option>
+          <option value="yt">Sadece YouTube</option>
+          <option value="ig">Sadece Instagram + TikTok</option>
+        </select></div>
+    </div>
+    <div class="alan"><label><input type="checkbox" id="tSiki"> Sıkı eşleşme
+      <span class="kucuk">(YouTube'da başlığın tüm kelimeleri geçsin — dar konularda aç)</span></label></div>
+    <div class="satir">
+      <button class="b esas" onclick="trendAra()">📈 Trend ara</button>
+      <button class="b" onclick="viralAra()">🔥 Bu haftanın viral Shorts'ları</button>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h3>Ne işe yarar</h3>
+    <div class="kucuk">
+      <p><b>YouTube tarafı hız ölçer</b> — saatlik izlenme. Şu an ne patlıyor.
+      Toplam izlenme eşiği koymak yanlış olurdu: taze bir video saatte 3000
+      izlenme alıyor olsa da henüz 500 bine ulaşmamış olur.</p>
+      <p><b>Instagram/TikTok tarafı aşırı performans ölçer</b> — videonun,
+      o hesabın kendi ortalamasını kaç kat aştığı. Büyük hesap olmak
+      gerekmiyor; kalıbı tutan küçük hesap da listeye giriyor.</p>
+      <p>Rapordaki <code>hook_0_3s</code> alanı en değerli kısım: ilk üç
+      saniyede ekranda ne olduğunu, ne yazdığını ve ne duyulduğunu söylüyor.
+      Kalıp orada. Aynı kalıbı iki farklı hesapta gördüysen o bir trend;
+      bir kere gördüysen tesadüf olabilir.</p>
+    </div>
+  </div>`;
+}
+
+function trendAra(){
+  const g={
+    tur:"trend",
+    konu:$("#tKonu").value.trim(),
+    dil:$("#tDil").value,
+    min:$("#tMin").value.trim()||"200000",
+    siki:$("#tSiki").checked,
+    platform:$("#tPlatform").value
+  };
+  calistirGoster(g,"Trend aranıyor…");
+}
+
+function viralAra(){
+  calistirGoster({tur:"viral",konu:$("#tKonu").value.trim(),dil:$("#tDil").value,min:"10000000"},
+                 "Bu haftanın viral Shorts'ları aranıyor…");
 }
 
 function kaynakHTML(){

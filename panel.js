@@ -315,6 +315,13 @@ const server = http.createServer(async (req, res) => {
       prompt:  ["prompt-kart.js", [b.is]],
       ses:     ["seslendir.js",   [b.is]],
       video:   ["video-yap.js",   [b.is]],
+      trend:   ["trend-ara.js",   [String(b.konu || ""),
+                                   "--dil", String(b.dil || "en"),
+                                   "--min", String(b.min || 200000),
+                                   ...(b.siki ? ["--siki"] : [])]],
+      viral:   ["viral-analiz.js", [String(b.konu || ""),
+                                   String(b.dil || "en"),
+                                   String(b.min || 10000000)]],
       tonMuzik:["ton-analiz.js",  [b.klasor]],
       mix:     ["mix-pro.js",     [b.klasor, b.mixAd || "DJ MIX"]],
     };

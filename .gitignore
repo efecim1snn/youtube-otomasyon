@@ -66,3 +66,4 @@ thread-gorsel.js
 # kod depoya girer; indirilen videolar ve yerel ayarlar girmez
 video-indirici/indirilenler/
 video-indirici/ayarlar.json
+trend/
